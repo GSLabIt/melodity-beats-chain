@@ -22,9 +22,9 @@ use sc_chain_spec::ChainSpecExtension;
 use sp_core::{Pair, Public, crypto::UncheckedInto, sr25519};
 use serde::{Serialize, Deserialize};
 use node_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig,
-	DemocracyConfig,GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
-	StakingConfig, ElectionsConfig, IndicesConfig, SocietyConfig, SudoConfig, SystemConfig,
+	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, /* ContractsConfig, */ CouncilConfig,
+	DemocracyConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
+	StakingConfig, /* ElectionsConfig, */ IndicesConfig, /* SocietyConfig, */ SudoConfig, SystemConfig,
 	TechnicalCommitteeConfig, wasm_binary_unwrap,
 };
 use node_runtime::Block;
@@ -279,13 +279,13 @@ pub fn testnet_genesis(
 			.. Default::default()
 		}),
 		pallet_democracy: Some(DemocracyConfig::default()),
-		pallet_elections_phragmen: Some(ElectionsConfig {
+		/* pallet_elections_phragmen: Some(ElectionsConfig {
 			members: endowed_accounts.iter()
 						.take((num_endowed_accounts + 1) / 2)
 						.cloned()
 						.map(|member| (member, STASH))
 						.collect(),
-		}),
+		}), */
 		pallet_collective_Instance1: Some(CouncilConfig::default()),
 		pallet_collective_Instance2: Some(TechnicalCommitteeConfig {
 			members: endowed_accounts.iter()
@@ -294,12 +294,12 @@ pub fn testnet_genesis(
 						.collect(),
 			phantom: Default::default(),
 		}),
-		pallet_contracts: Some(ContractsConfig {
+		/* pallet_contracts: Some(ContractsConfig {
 			current_schedule: pallet_contracts::Schedule {
 				enable_println, // this should only be enabled on development chains
 				..Default::default()
 			},
-		}),
+		}), */
 		pallet_sudo: Some(SudoConfig {
 			key: root_key,
 		}),
@@ -317,7 +317,7 @@ pub fn testnet_genesis(
 		}),
 		pallet_membership_Instance1: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
-		pallet_society: Some(SocietyConfig {
+		/* pallet_society: Some(SocietyConfig {
 			members: endowed_accounts.iter()
 						.take((num_endowed_accounts + 1) / 2)
 						.cloned()
@@ -325,7 +325,7 @@ pub fn testnet_genesis(
 			pot: 0,
 			max_members: 999,
 		}),
-		pallet_vesting: Some(Default::default()),
+		pallet_vesting: Some(Default::default()), */
 	}
 }
 
