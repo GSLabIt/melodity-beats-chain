@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 100,
+	spec_version: 101,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -133,11 +133,11 @@ pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item=NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 40% to treasury, 60% to author
-			let mut split = fees.ration(40, 60);
+			// for fees, 25% to treasury, 75% to author
+			let mut split = fees.ration(25, 75);
 			if let Some(tips) = fees_then_tips.next() {
-				// for tips, if any, 40% to treasury, 60% to author (though this can be anything)
-				tips.ration_merge_into(40, 60, &mut split);
+				// for tips, if any, 25% to treasury, 75% to author (though this can be anything)
+				tips.ration_merge_into(25, 75, &mut split);
 			}
 			Treasury::on_unbalanced(split.0);
 			Author::on_unbalanced(split.1);
@@ -302,7 +302,7 @@ impl pallet_proxy::Config for Runtime {
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
-	pub const MaxScheduledPerBlock: u32 = 50;
+	pub const MaxScheduledPerBlock: u32 = 25;
 }
 
 impl pallet_scheduler::Config for Runtime {
@@ -347,7 +347,7 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-	pub const IndexDeposit: Balance = 1 * DOLLARS;
+	pub const IndexDeposit: Balance = 10 * DOLLARS;
 }
 
 impl pallet_indices::Config for Runtime {
@@ -383,9 +383,21 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
+	/// Handler for withdrawing, refunding and depositing the transaction fee.
+	/// Transaction fees are withdrawn before the transaction is executed.
+	/// After the transaction was executed the transaction weight can be
+	/// adjusted, depending on the used resources by the transaction. If the
+	/// transaction weight is lower than expected, parts of the transaction fee
+	/// might be refunded. In the end the fees can be deposited.
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+
+	/// The fee to be paid for making a transaction; the per-byte portion.
 	type TransactionByteFee = TransactionByteFee;
+
+	/// Convert a weight value into a deductible fee based on the currency type.
 	type WeightToFee = IdentityFee<Balance>;
+
+	/// Update the multiplier of the next block, based on the previous block's weight.
 	type FeeMultiplierUpdate =
 		TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
@@ -402,7 +414,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const UncleGenerations: BlockNumber = 0;
+	pub const UncleGenerations: BlockNumber = 5;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -427,13 +439,36 @@ parameter_types! {
 
 impl pallet_session::Config for Runtime {
 	type Event = Event;
+
+	/// A stable ID for a validator.
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
+
+	/// A conversion from account ID to validator ID.
+	///
+	/// Its cost must be at most one storage read.
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+
+	/// Indicator for when to end the session.
 	type ShouldEndSession = Babe;
+
+	/// Something that can predict the next session rotation. This should typically come from the
+	/// same logical unit that provides [`ShouldEndSession`], yet, it gives a best effort estimate.
+	/// It is helpful to implement [`EstimateNextNewSession`].
 	type NextSessionRotation = Babe;
+
+	/// Handler for managing new session.
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+
+	/// Handler when a session has changed.
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+
+	/// The keys.
 	type Keys = SessionKeys;
+
+	/// The fraction of validators set that is safe to be disabled.
+	///
+	/// After the threshold is reached `disabled` method starts to return true,
+	/// which in combination with `pallet_staking` forces a new era.
 	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
@@ -446,7 +481,7 @@ impl pallet_session::historical::Config for Runtime {
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
+		max_inflation: 0_050_000,
 		ideal_stake: 0_500_000,
 		falloff: 0_050_000,
 		max_piece_count: 40,
@@ -472,30 +507,92 @@ parameter_types! {
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
+
+	/// Time used for computing era duration.
+	///
+	/// It is guaranteed to start being called from the first `on_finalize`. Thus value at genesis
+	/// is not used.
 	type UnixTime = Timestamp;
+
+	/// Convert a balance into a number used for election calculation. This must fit into a `u64`
+	/// but is allowed to be sensibly lossy. The `u64` is used to communicate with the
+	/// [`sp_npos_elections`] crate which accepts u64 numbers and does operations in 128.
+	/// Consequently, the backward convert is used convert the u128s from sp-elections back to a
+	/// [`BalanceOf`].
 	type CurrencyToVote = U128CurrencyToVote;
+
+	/// Tokens have been minted and are unused for validator-reward.
+	/// See [Era payout](./index.html#era-payout).
 	type RewardRemainder = Treasury;
 	type Event = Event;
+
+	/// Handler for the unbalanced reduction when slashing a staker.
 	type Slash = Treasury; // send the slashed funds to the treasury.
+
+	/// Handler for the unbalanced increment when rewarding a staker.
 	type Reward = (); // rewards are minted from the void
+
+	/// Number of sessions per era.
 	type SessionsPerEra = SessionsPerEra;
+
+	/// Number of eras that staked funds must remain bonded for.
 	type BondingDuration = BondingDuration;
+
+	/// Number of eras that slashes are deferred by, after computation.
+	///
+	/// This should be less than the bonding duration. Set to 0 if slashes
+	/// should be applied immediately, without opportunity for intervention.
 	type SlashDeferDuration = SlashDeferDuration;
+
+	/// The origin which can cancel a deferred slash. Root can always do this.
 	/// A super-majority of the council can cancel the slash.
 	type SlashCancelOrigin = EnsureOneOf<
 		AccountId,
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>
 	>;
+
+	/// Interface for interacting with a session pallet.
 	type SessionInterface = Self;
+
+	/// The NPoS reward curve used to define yearly inflation.
+	/// See [Era payout](./index.html#era-payout).
 	type RewardCurve = RewardCurve;
+
+	/// Something that can estimate the next session change, accurately or as a best effort guess.
 	type NextNewSession = Session;
+
+	/// The number of blocks before the end of the era from which election submissions are allowed.
+	///
+	/// Setting this to zero will disable the offchain compute and only on-chain seq-phragmen will
+	/// be used.
+	///
+	/// This is bounded by being within the last session. Hence, setting it to a value more than the
+	/// length of a session will be pointless.
 	type ElectionLookahead = ElectionLookahead;
 	type Call = Call;
+
+	/// Maximum number of balancing iterations to run in the offchain submission.
+	///
+	/// If set to 0, balance_solution will not be executed at all.
 	type MaxIterations = MaxIterations;
+
+	/// The threshold of improvement that should be provided for a new solution to be accepted.
 	type MinSolutionScoreBump = MinSolutionScoreBump;
+
+	/// The maximum number of nominators rewarded for each validator.
+	///
+	/// For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
+	/// their reward. This used to limit the i/o cost for the nominator payout.
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+
+	/// A configuration for base priority of unsigned transactions.
+	///
+	/// This is exposed so that it can be tuned for particular runtime, when
+	/// multiple pallets send unsigned transactions.
 	type UnsignedPriority = StakingUnsignedPriority;
+
+
 	// The unsigned solution weight targeted by the OCW. We set it to the maximum possible value of
 	// a single extrinsic.
 	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
@@ -505,13 +602,13 @@ impl pallet_staking::Config for Runtime {
 parameter_types! {
 	pub const LaunchPeriod: BlockNumber = 10 * 24 * 60 * MINUTES;
 	pub const VotingPeriod: BlockNumber = 10 * 24 * 60 * MINUTES;
-	pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
+	pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES; // 1/3 VotingPeriod
 	pub const InstantAllowed: bool = true;
 	pub const MinimumDeposit: Balance = 1000 * DOLLARS;
 	pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
 	pub const CooloffPeriod: BlockNumber = 20 * 24 * 60 * MINUTES;
-	// One cent: $10,000 / MB
-	pub const PreimageByteDeposit: Balance = 1 * CENTS;
+	// 10 cent: $100,000 / MB
+	pub const PreimageByteDeposit: Balance = 10 * CENTS;
 	pub const MaxVotes: u32 = 10;
 	pub const MaxProposals: u32 = 10;
 }
@@ -632,7 +729,7 @@ impl pallet_democracy::Config for Runtime {
 parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 7 * DAYS;
 	pub const CouncilMaxProposals: u32 = 10;
-	pub const CouncilMaxMembers: u32 = 20;
+	pub const CouncilMaxMembers: u32 = 10;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -659,13 +756,41 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
+// council members are elected by the council itself or by root
+impl pallet_membership::Config<pallet_membership::Instance2> for Runtime {
+	type Event = Event;
+
+	/// Required origin for adding a member (though can always be Root).
+	type AddOrigin = EnsureRootOrHalfCouncil;
+
+	/// Required origin for removing a member (though can always be Root).
+	type RemoveOrigin = EnsureRootOrHalfCouncil;
+
+	/// Required origin for adding and removing a member in a single action.
+	type SwapOrigin = EnsureRootOrHalfCouncil;
+
+	/// Required origin for resetting membership.
+	type ResetOrigin = EnsureRootOrHalfCouncil;
+
+	/// Required origin for setting or resetting the prime member.
+	type PrimeOrigin = EnsureRootOrHalfCouncil;
+
+	/// The receiver of the signal for when the membership has been initialized. This happens pre-
+	/// genesis and will usually be the same as `MembershipChanged`. If you need to do something
+	/// different on initialization, then you can change this accordingly.
+	type MembershipInitialized = Council;
+
+	/// The receiver of the signal for when the membership has changed.
+	type MembershipChanged = Council;
+}
+
 /* parameter_types! {
-	pub const CandidacyBond: Balance = 10 * DOLLARS;
+	pub const CandidacyBond: Balance = 1000 * DOLLARS;
 	// 1 storage item created, key size is 32 bytes, value size is 16+16.
 	pub const VotingBondBase: Balance = deposit(1, 64);
 	// additional data per vote is 32 bytes (account id).
 	pub const VotingBondFactor: Balance = deposit(0, 32);
-	pub const TermDuration: BlockNumber = 7 * DAYS;
+	pub const TermDuration: BlockNumber = 0 * DAYS;	// passive mode
 	pub const DesiredMembers: u32 = 13;
 	pub const DesiredRunnersUp: u32 = 7;
 	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
@@ -678,18 +803,46 @@ impl pallet_elections_phragmen::Config for Runtime {
 	type Event = Event;
 	type ModuleId = ElectionsPhragmenModuleId;
 	type Currency = Balances;
+
+	/// What to do when the members change.
 	type ChangeMembers = Council;
+
+	/// What to do with genesis members
 	// NOTE: this implies that council's genesis members cannot be set directly and must come from
 	// this module.
 	type InitializeMembers = Council;
+
+	/// Convert a balance into a number used for election calculation.
+	/// This must fit into a `u64` but is allowed to be sensibly lossy.
 	type CurrencyToVote = U128CurrencyToVote;
+
+	/// How much should be locked up in order to submit one's candidacy.
 	type CandidacyBond = CandidacyBond;
+
+	/// Base deposit associated with voting.
+	///
+	/// This should be sensibly high to economically ensure the pallet cannot be attacked by
+	/// creating a gigantic number of votes.
 	type VotingBondBase = VotingBondBase;
+
+	/// The amount of bond that need to be locked for each vote (32 bytes).
 	type VotingBondFactor = VotingBondFactor;
+
+	/// Handler for the unbalanced reduction when a candidate has lost (and is not a runner-up)
 	type LoserCandidate = ();
+
+	/// Handler for the unbalanced reduction when a member has been kicked.
 	type KickedMember = ();
+
+	/// Number of members to elect.
 	type DesiredMembers = DesiredMembers;
+
+	/// Number of runners_up to keep.
 	type DesiredRunnersUp = DesiredRunnersUp;
+
+	/// How long each seat is kept. This defines the next block number at which an election
+	/// round will happen. If set to zero, no elections are ever triggered and the module will
+	/// be in passive mode.
 	type TermDuration = TermDuration;
 	type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
 } */
@@ -697,7 +850,7 @@ impl pallet_elections_phragmen::Config for Runtime {
 parameter_types! {
 	pub const TechnicalMotionDuration: BlockNumber = 7 * DAYS;
 	pub const TechnicalMaxProposals: u32 = 10;
-	pub const TechnicalMaxMembers: u32 = 50;
+	pub const TechnicalMaxMembers: u32 = 25;
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
@@ -757,15 +910,15 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 }
 
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
+	pub const ProposalBond: Permill = Permill::from_percent(10);
+	pub const ProposalBondMinimum: Balance = 1000 * DOLLARS;
 	pub const SpendPeriod: BlockNumber = 1 * DAYS;
 	pub const Burn: Permill = Permill::from_percent(25);
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
-	pub const TipFindersFee: Percent = Percent::from_percent(20);
-	pub const TipReportDepositBase: Balance = 1 * DOLLARS;
+	pub const TipFindersFee: Percent = Percent::from_percent(15);
+	pub const TipReportDepositBase: Balance = 1000 * DOLLARS;
 	pub const DataDepositPerByte: Balance = 10 * CENTS;
-	pub const BountyDepositBase: Balance = 100 * DOLLARS;
+	pub const BountyDepositBase: Balance = 1000 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
 	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
 	pub const BountyUpdatePeriod: BlockNumber = 28 * DAYS;
@@ -846,16 +999,30 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_tips::Config for Runtime {
+/* impl pallet_tips::Config for Runtime {
 	type Event = Event;
+
+	/// The amount held on deposit per byte within the tip report reason or bounty description.
 	type DataDepositPerByte = DataDepositPerByte;
+
+	/// Maximum acceptable reason length.
 	type MaximumReasonLength = MaximumReasonLength;
+
+	/// Origin from which tippers must come.
+	///
+	/// `ContainsLengthBound::max_len` must be cost free (i.e. no storage read or heavy operation).
 	type Tippers = Elections;
+
+	/// The period for which a tip remains open after is has achieved threshold tippers.
 	type TipCountdown = TipCountdown;
+
+	/// The percent of the final tip which goes to the original reporter of the tip.
 	type TipFindersFee = TipFindersFee;
+
+	/// The amount held on deposit for placing a tip report.
 	type TipReportDepositBase = TipReportDepositBase;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
-}
+} */
 
 /* parameter_types! {
 	pub const TombstoneDeposit: Balance = deposit(
@@ -984,7 +1151,7 @@ impl pallet_im_online::Config for Runtime {
 }
 
 parameter_types! {
-	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
+	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(75) *
 		RuntimeBlockWeights::get().max_block;
 }
 
@@ -1019,7 +1186,7 @@ impl pallet_grandpa::Config for Runtime {
 
 parameter_types! {
 	pub const BasicDeposit: Balance = 10 * DOLLARS;       // 258 bytes on-chain
-	pub const FieldDeposit: Balance = 500 * CENTS;        // 66 bytes on-chain
+	pub const FieldDeposit: Balance = 50 * CENTS;        // 66 bytes on-chain
 	pub const SubAccountDeposit: Balance = 5 * DOLLARS;   // 53 bytes on-chain
 	pub const MaxSubAccounts: u32 = 25;
 	pub const MaxAdditionalFields: u32 = 100;
@@ -1145,7 +1312,7 @@ impl pallet_lottery::Config for Runtime {
 	type Randomness = RandomnessCollectiveFlip;
 
 	/// The manager origin.
-	type ManagerOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRootOrHalfCouncil;
 
 	/// The max number of calls available in a single lottery.
 	type MaxCalls = MaxCalls;
@@ -1169,7 +1336,7 @@ parameter_types! {
 	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
 	pub const StringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
-	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+	pub const MetadataDepositPerByte: Balance = 50 * CENTS;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -1180,7 +1347,7 @@ impl pallet_assets::Config for Runtime {
 
 	/// The origin which may forcibly create or destroy an asset or otherwise alter privileged
 	/// attributes.
-	type ForceOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRootOrHalfCouncil;
 
 	/// The basic amount of funds that must be reserved when creating a new asset class.
 	type AssetDepositBase = AssetDepositBase;
@@ -1201,6 +1368,18 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+impl melodity_nft::Config for Runtime {
+	type Event = Event;
+	/// The class ID type
+	type ClassId = u128;
+	/// The token ID type
+	type TokenId = u128;
+	/// The class properties type
+	type ClassData = Vec<u8>;
+	/// The token properties type
+	type TokenData = melodity_nft::MelodityNFTData;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1219,6 +1398,7 @@ construct_runtime!(
 		Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
 		Democracy: pallet_democracy::{Module, Call, Storage, Config, Event<T>},
 		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		CouncilMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
 		TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		// Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
 		TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
@@ -1239,10 +1419,12 @@ construct_runtime!(
 		// Proxy: pallet_proxy::{Module, Call, Storage, Event<T>},
 		// Multisig: pallet_multisig::{Module, Call, Storage, Event<T>},
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
-		Tips: pallet_tips::{Module, Call, Storage, Event<T>},
+		// Tips: pallet_tips::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
 		Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+
+		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>}
 	}
 );
 
@@ -1562,27 +1744,27 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_bounties, Bounties);
 			add_benchmark!(params, batches, pallet_collective, Council);
-			add_benchmark!(params, batches, pallet_contracts, Contracts);
+			// add_benchmark!(params, batches, pallet_contracts, Contracts);
 			add_benchmark!(params, batches, pallet_democracy, Democracy);
-			add_benchmark!(params, batches, pallet_elections_phragmen, Elections);
+			// add_benchmark!(params, batches, pallet_elections_phragmen, Elections);
 			add_benchmark!(params, batches, pallet_grandpa, Grandpa);
 			add_benchmark!(params, batches, pallet_identity, Identity);
 			add_benchmark!(params, batches, pallet_im_online, ImOnline);
 			add_benchmark!(params, batches, pallet_indices, Indices);
 			add_benchmark!(params, batches, pallet_lottery, Lottery);
 			add_benchmark!(params, batches, pallet_mmr, Mmr);
-			add_benchmark!(params, batches, pallet_multisig, Multisig);
+			// add_benchmark!(params, batches, pallet_multisig, Multisig);
 			add_benchmark!(params, batches, pallet_offences, OffencesBench::<Runtime>);
-			add_benchmark!(params, batches, pallet_proxy, Proxy);
+			// add_benchmark!(params, batches, pallet_proxy, Proxy);
 			add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 			add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_staking, Staking);
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-			add_benchmark!(params, batches, pallet_tips, Tips);
+			// add_benchmark!(params, batches, pallet_tips, Tips);
 			add_benchmark!(params, batches, pallet_treasury, Treasury);
 			add_benchmark!(params, batches, pallet_utility, Utility);
-			add_benchmark!(params, batches, pallet_vesting, Vesting);
+			// add_benchmark!(params, batches, pallet_vesting, Vesting);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

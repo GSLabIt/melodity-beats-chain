@@ -22,8 +22,8 @@ use crate::keyring::*;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use node_runtime::{
 	GenesisConfig, BalancesConfig, SessionConfig, StakingConfig, SystemConfig,
-	GrandpaConfig, IndicesConfig, ContractsConfig, SocietyConfig, wasm_binary_unwrap,
-	AccountId, StakerStatus,
+	GrandpaConfig, IndicesConfig, /* ContractsConfig, */ /* SocietyConfig, */ wasm_binary_unwrap,
+	AccountId, StakerStatus, NftConfig,
 };
 use node_runtime::constants::currency::*;
 use sp_core::ChangesTrieConfiguration;
@@ -97,9 +97,10 @@ pub fn config_endowed(
 			invulnerables: vec![alice(), bob(), charlie()],
 			.. Default::default()
 		}),
-		pallet_contracts: Some(ContractsConfig {
+		/* pallet_contracts: Some(ContractsConfig {
 			current_schedule: Default::default(),
-		}),
+		}), */
+		melodity_nft: Some(Default::default()),
 		pallet_babe: Some(Default::default()),
 		pallet_grandpa: Some(GrandpaConfig {
 			authorities: vec![],
@@ -110,14 +111,15 @@ pub fn config_endowed(
 		pallet_collective_Instance1: Some(Default::default()),
 		pallet_collective_Instance2: Some(Default::default()),
 		pallet_membership_Instance1: Some(Default::default()),
-		pallet_elections_phragmen: Some(Default::default()),
+		pallet_membership_Instance2: Some(Default::default()),
+		// pallet_elections_phragmen: Some(Default::default()),
 		pallet_sudo: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
-		pallet_society: Some(SocietyConfig {
+		/* pallet_society: Some(SocietyConfig {
 			members: vec![alice(), bob()],
 			pot: 0,
 			max_members: 999,
 		}),
-		pallet_vesting: Some(Default::default()),
+		pallet_vesting: Some(Default::default()), */
 	}
 }

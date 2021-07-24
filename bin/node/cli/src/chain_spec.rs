@@ -25,7 +25,7 @@ use node_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, /* ContractsConfig, */ CouncilConfig,
 	DemocracyConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, /* ElectionsConfig, */ IndicesConfig, /* SocietyConfig, */ SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, wasm_binary_unwrap,
+	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig,
 };
 use node_runtime::Block;
 use node_runtime::constants::currency::*;
@@ -300,6 +300,16 @@ pub fn testnet_genesis(
 				..Default::default()
 			},
 		}), */
+		melodity_nft: Some(NftConfig {
+			tokens: vec![
+				(
+					root_key.clone(), 
+					"Melodity Track - MELT".as_bytes().to_vec(), 
+					vec![], 
+					vec![]
+				)
+			]
+		}),
 		pallet_sudo: Some(SudoConfig {
 			key: root_key,
 		}),
@@ -316,6 +326,7 @@ pub fn testnet_genesis(
 			authorities: vec![],
 		}),
 		pallet_membership_Instance1: Some(Default::default()),
+		pallet_membership_Instance2: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),
 		/* pallet_society: Some(SocietyConfig {
 			members: endowed_accounts.iter()
