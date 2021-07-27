@@ -326,7 +326,7 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type Call = Call;
 	type MaximumWeight = MaximumSchedulerWeight;
-	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type ScheduleOrigin = EnsureRootOrHalfCouncil;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
 }
@@ -362,7 +362,7 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-	pub const IndexDeposit: Balance = 10 * DOLLARS;
+	pub const IndexDeposit: Balance = 1000 * DOLLARS;
 }
 
 impl pallet_indices::Config for Runtime {
@@ -374,7 +374,7 @@ impl pallet_indices::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 1 * DOLLARS;
+	pub const ExistentialDeposit: Balance = 0 * DOLLARS;
 	// For weight estimation, we assume that the most locks on an individual account will be 50.
 	// This number may need to be adjusted in the future if this assumption no longer holds true.
 	pub const MaxLocks: u32 = 50;
@@ -391,7 +391,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	pub const TransactionByteFee: Balance = 1 * CENTS;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
@@ -495,8 +495,8 @@ impl pallet_session::historical::Config for Runtime {
 
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_050_000,
+		min_inflation: 0_010_000,
+		max_inflation: 0_020_000,
 		ideal_stake: 0_500_000,
 		falloff: 0_050_000,
 		max_piece_count: 40,
@@ -607,7 +607,6 @@ impl pallet_staking::Config for Runtime {
 	/// multiple pallets send unsigned transactions.
 	type UnsignedPriority = StakingUnsignedPriority;
 
-
 	// The unsigned solution weight targeted by the OCW. We set it to the maximum possible value of
 	// a single extrinsic.
 	type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
@@ -670,12 +669,12 @@ impl pallet_democracy::Config for Runtime {
 	/// emergency origin. It retains its threshold method.
 	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
-	type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+	type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
 
 	/// Origin from which the next majority-carries (or more permissive) referendum may be tabled to
 	/// vote immediately and asynchronously in a similar manner to the emergency origin. It retains
 	/// its threshold method.
-	type InstantOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>;
+	type InstantOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
 
 	/// Indicator for whether an emergency origin is even allowed to happen. Some chains may want
 	/// to set this permanently to `false`, others may want to condition it on things such as
@@ -690,16 +689,20 @@ impl pallet_democracy::Config for Runtime {
 	type CancellationOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
 
 	/// Origin from which a proposal may be cancelled and its backers slashed.
-	/// To cancel a proposal before it has been passed, the technical committee must be unanimous or
+	/// To cancel a proposal before it has been passed, the council must be unanimous or
 	/// Root must agree.
 	type CancelProposalOrigin = EnsureOneOf<
 		AccountId,
 		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>,
+		pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
 	>;
 
 	/// Origin from which proposals may be blacklisted.
-	type BlacklistOrigin = EnsureRoot<AccountId>;
+	type BlacklistOrigin = EnsureOneOf<
+		AccountId,
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
+	>;
 
 	/// Origin for anyone able to veto proposals.
 	///
@@ -707,9 +710,9 @@ impl pallet_democracy::Config for Runtime {
 	///
 	/// The number of Vetoers for a proposal must be small, extrinsics are weighted according to
 	/// [MAX_VETOERS](./const.MAX_VETOERS.html)
-	/// Any single technical committee member may veto a coming council proposal, however they can
+	/// Any single council member may veto a proposal, however they can
 	/// only do it once and it lasts only for the cooloff period.
-	type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
+	type VetoOrigin = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
 
 	/// Period in blocks where an external proposal may not be re-submitted after being vetoed.
 	type CooloffPeriod = CooloffPeriod;
