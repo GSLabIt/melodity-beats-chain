@@ -129,18 +129,33 @@ pub fn native_version() -> NativeVersion {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
+// cto address 
+// TODO: change with the company one
+parameter_types! {
+	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
+}
+
+pub struct TakePlatformFeeRewardAuthor;
+impl OnUnbalanced<NegativeImbalance> for TakePlatformFeeRewardAuthor {
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		let (imb1, imb2) = amount.ration(90, 10);
+		Author::on_unbalanced(imb1);
+		Balances::resolve_creating(&PlatformPot::get(), imb2);
+	}
+}
+
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item=NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 25% to treasury, 75% to author
+			// for fees, 25% to treasury, 75% to split with platform and owner
 			let mut split = fees.ration(25, 75);
 			if let Some(tips) = fees_then_tips.next() {
 				// for tips, if any, 25% to treasury, 75% to author (though this can be anything)
 				tips.ration_merge_into(25, 75, &mut split);
 			}
 			Treasury::on_unbalanced(split.0);
-			Author::on_unbalanced(split.1);
+			TakePlatformFeeRewardAuthor::on_unbalanced(split.1);
 		}
 	}
 }
@@ -1191,8 +1206,6 @@ parameter_types! {
 	pub SecondPrize: Percent = Percent::from_parts(20);
 	pub ThirdPrize: Percent = Percent::from_parts(10);
 	pub PlatformFee: Percent = Percent::from_parts(15);
-										// cto address
-	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
 	pub VoterPrize: Balance = 50 * DOLLARS;
 }
 

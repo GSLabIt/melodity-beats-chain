@@ -272,6 +272,8 @@ decl_error! {
 		AlreadyVoted,
 		/// Invalid score provided, it should be a number between 0 and 10 included
 		ScoreNotValid,
+		/// You cannot vote your own tracks
+		UnableToVoteYourself
 	}
 }
 
@@ -311,15 +313,19 @@ decl_module! {
 						T::Currency::deposit_creating(&pool[0].0.0, pool_balance);
 
 						Self::deposit_event(Event::<T>::PrizeDistributed(
-							vec![(pool[0].0.0.clone(), first_prize)],
+							vec![(pool[0].0.0.clone(), pool_balance)],
 							vec![(pool[0].0.0.clone(), BalanceOf::<T>::zero())],
 							vec![(pool[0].0.0.clone(), BalanceOf::<T>::zero())],
 						));
 
 						// empty the pool
+						<CandidateExists<T>>::remove_all();
+						<CanVoteCandidate<T>>::remove_all();
 						pool.clear();
-						pool_balance -= pool_balance;
-						return 100_000_000;
+						<Pool<T>>::put(pool);
+						pool_balance = BalanceOf::<T>::zero();
+						<PoolBalance<T>>::put(pool_balance);
+						return 500_000_000;
 					},
 					// two participants, use the standard prize division
 					2 => {
@@ -357,7 +363,11 @@ decl_module! {
 				// finally reset the pool balance
 				pool_balance = BalanceOf::<T>::zero();
 				// empty the pool
+				<CandidateExists<T>>::remove_all();
+				<CanVoteCandidate<T>>::remove_all();
 				pool.clear();
+				<Pool<T>>::put(pool);
+				<PoolBalance<T>>::put(pool_balance);
 				return 1_000_000_000;
 			}
 			0
@@ -371,7 +381,7 @@ decl_module! {
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of the transactor in the `Pool`.
-		#[weight = 100_000_000]
+		#[weight = 1_000_000_000]
 		pub fn submit_candidacy(origin, nft_id: u128) {
 			let who = ensure_signed(origin)?;
 			ensure!(!<CandidateExists<T>>::contains_key(&who, &nft_id), Error::<T>::AlreadyInPool);
@@ -403,7 +413,7 @@ decl_module! {
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of `dest` in the `Pool`.
-		#[weight = 1_000_000_000_000]
+		#[weight = 1_000_000_000]
 		pub fn kick(
 			origin,
 			dest: <T::Lookup as StaticLookup>::Source,
@@ -432,6 +442,15 @@ decl_module! {
 			let voter = T::Lookup::lookup(dest)?;
 			let owner = T::Lookup::lookup(nft_owner)?;
 
+			// check nft existance
+			ensure!(T::Nft::exists(0u128, nft_id), Error::<T>::MissingNft);
+			
+			// check nft ownance
+			ensure!(T::Nft::owns(owner.clone(), 0u128, nft_id), Error::<T>::NotOwnedNFT);
+
+			// the owner of the track cannot vote its own track
+			ensure!(owner != voter, Error::<T>::UnableToVoteYourself);
+
 			// check that the vote key not exists for the given track
 			ensure!(!<CanVoteCandidate<T>>::contains_key(
 				voter.clone(), 
@@ -442,7 +461,7 @@ decl_module! {
 			<CanVoteCandidate<T>>::mutate(
 				voter.clone(), 
 				(owner.clone(), nft_id),
-				|_| true
+				|v| *v = true
 			);
 
 			Self::deposit_event(RawEvent::VoteEnabled(voter, owner, nft_id));
@@ -490,7 +509,7 @@ decl_module! {
 			<CanVoteCandidate<T>>::mutate(
 				sender.clone(), 
 				(who.clone(),nft_id),
-				|_| false
+				|v| *v = false
 			);
 
 			// remove the record from the pool, it will be reinserted asap with the correct order
@@ -523,7 +542,7 @@ decl_module! {
 		/// (this happens each `Period`).
 		///
 		/// May only be called from root.
-		#[weight = 1_000_000_000_000]
+		#[weight = 1_000_000_000]
 		pub fn change_member_count(origin, count: u8) {
 			T::ControllerOrigin::ensure_origin(origin)?;
 			<MemberCount>::put(&count);
