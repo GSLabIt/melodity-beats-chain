@@ -22,7 +22,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-
 use sp_std::prelude::*;
 use frame_support::{
 	construct_runtime, parameter_types, debug, RuntimeDebug,
@@ -72,6 +71,7 @@ use pallet_session::{historical as pallet_session_historical};
 use sp_inherents::{InherentData, CheckInherentsResult};
 use static_assertions::const_assert;
 use pallet_contracts::WeightInfo;
+use hex_literal::hex;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -1185,6 +1185,74 @@ impl pallet_grandpa::Config for Runtime {
 }
 
 parameter_types! {
+	pub CandidateDeposit: Balance = 1000 * DOLLARS;
+	pub Period: BlockNumber = 7 * DAYS;
+	pub FirstPrize: Percent = Percent::from_parts(40);
+	pub SecondPrize: Percent = Percent::from_parts(20);
+	pub ThirdPrize: Percent = Percent::from_parts(10);
+	pub PlatformFee: Percent = Percent::from_parts(15);
+										// cto address
+	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
+	pub VoterPrize: Balance = 50 * DOLLARS;
+}
+
+impl melodity_track_election::Config for Runtime {
+	/// The currency used for deposits.
+	type Currency = Balances;
+
+	/// The overarching event type.
+	type Event = Event;
+
+	/// The balance type of the the pool
+	type Balance = Balance;
+
+	// The deposit which is reserved from candidates if they want to
+	// start a candidacy. The deposit gets returned when the candidacy is
+	// withdrawn or when the candidate is kicked.
+	type CandidateDeposit = CandidateDeposit;
+
+	/// Every `Period` blocks the `Members` are filled with the highest scoring
+	/// members in the `Pool`.
+	type Period = Period;
+
+	/// The receiver of the signal for when the membership has been initialized.
+	/// This happens pre-genesis and will usually be the same as `MembershipChanged`.
+	/// If you need to do something different on initialization, then you can change
+	/// this accordingly.
+	type MembershipInitialized = ();
+
+	/// The receiver of the signal for when the members have changed.
+	type MembershipChanged = ();
+
+	/// Required origin for making all the administrative modifications
+	type ControllerOrigin = EnsureRootOrHalfCouncil;
+
+	/// Percentage of the pool prize to reward to the first classified
+	type FirstPrize = FirstPrize;
+
+	/// Percentage of the pool prize to reward to the second classified
+	type SecondPrize = SecondPrize;
+
+	/// Percentage of the pool prize to reward to the third classified
+	type ThirdPrize = ThirdPrize;
+
+	/// Percentage of the pool prize to reward to the platform account
+	type PlatformFee = PlatformFee;
+
+	/// Platform pot account where all the on-chain platform funds are stored
+	type PlatformPot = PlatformPot;
+
+	/// Where the eventually remaining funds of the prize goes
+	type RewardRemainder = Treasury;
+
+	/// Instance of the melodity_nft pallet
+	type Nft = Nft;
+
+	/// The prize given to the listener for the vote of a track
+	type VoterPrize = VoterPrize;
+}
+
+parameter_types! {
 	pub const BasicDeposit: Balance = 10 * DOLLARS;       // 258 bytes on-chain
 	pub const FieldDeposit: Balance = 50 * CENTS;        // 66 bytes on-chain
 	pub const SubAccountDeposit: Balance = 5 * DOLLARS;   // 53 bytes on-chain
@@ -1341,7 +1409,7 @@ parameter_types! {
 
 impl pallet_assets::Config for Runtime {
 	type Event = Event;
-	type Balance = u128;
+	type Balance = Balance;
 	type AssetId = u32;
 	type Currency = Balances;
 
@@ -1424,7 +1492,8 @@ construct_runtime!(
 		Mmr: pallet_mmr::{Module, Storage},
 		Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 
-		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>}
+		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>},
+		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},
 	}
 );
 

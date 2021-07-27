@@ -69,6 +69,7 @@ pub fn config_endowed(
 		pallet_balances: Some(BalancesConfig {
 			balances: endowed,
 		}),
+		melodity_track_election: Some(Default::default()),
 		pallet_session: Some(SessionConfig {
 			keys: vec![
 				(dave(), alice(), to_session_keys(

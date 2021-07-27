@@ -1,0 +1,33 @@
+{
+	"PeerId": "(Vec<u8>)",
+	"CurrencyId": {
+	  "_enum": [
+		"MELB",
+		"MELU"
+	  ]
+	},
+	"CurrencyIdOf": "CurrencyId",
+	"Amount": "i128",
+	"AmountOf": "Amount",
+	"TokenId": "u128",
+	"ClassId": "u128",
+	"ClassData": "(Vec<u8>)",
+	"ClassInfo": {
+	  "total_issuance": "TokenId",
+	  "owner": "AccountId",
+	  "data": "ClassData",
+	  "metadata": "(Vec<u8>)"
+	},
+	"ClassInfoOf": "ClassInfo",
+	"MelodityNFTData": {
+	  "json": "(Vec<u8>)"
+	},
+	"MelodityTrackData": "MelodityNFTData",
+	"TokenData": "MelodityTrackData",
+	"TokenInfo": {
+	  "owner": "AccountId",
+	  "data": "TokenData"
+	},
+	"TokenInfoOf": "TokenInfo",
+	"PoolT": "(Vec<((AccountId, u128), u128)>)"
+  }

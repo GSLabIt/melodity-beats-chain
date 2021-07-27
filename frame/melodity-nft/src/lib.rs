@@ -465,3 +465,18 @@ impl<T: Config> Pallet<T> {
 		TokensByOwner::<T>::contains_key(account, token)
 	}
 }
+
+pub trait NftExistance<T, U, V> {
+	fn exists(class_id: T, nft_id: U) -> bool;
+	fn owns(account: V, class_id: T, nft_id: U) -> bool;
+}
+
+impl<T: Config> NftExistance<T::ClassId, T::TokenId, T::AccountId> for Pallet<T> {
+	fn exists(class_id: T::ClassId, nft_id: T::TokenId) -> bool {
+		Tokens::<T>::contains_key(class_id, nft_id)
+	}
+
+	fn owns(account: T::AccountId, class_id: T::ClassId, nft_id: T::TokenId) -> bool {
+		TokensByOwner::<T>::contains_key(account, (class_id, nft_id))
+	}
+}
