@@ -35,7 +35,7 @@ use frame_support::{
 	},
 };
 use frame_system::{
-	EnsureRoot, EnsureOneOf,
+	EnsureRoot, EnsureOneOf, EnsureSignedBy,
 	limits::{BlockWeights, BlockLength}
 };
 use frame_support::traits::InstanceFilter;
@@ -128,12 +128,46 @@ pub fn native_version() -> NativeVersion {
 }
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
-
-// cto address 
-// TODO: change with the company one
+ 
 parameter_types! {
+	/// Do Labs - Company address (root address)
 	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
 }
+
+type EnsureRootOrHalfCouncil = EnsureOneOf<
+	AccountId,
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
+>;
+
+type EnsureRootOr3OutOf4Council = EnsureOneOf<
+	AccountId,
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<_3, _4, AccountId, CouncilCollective>
+>;
+
+type EnsureRootOr2OutOf3Council = EnsureOneOf<
+	AccountId,
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilCollective>
+>;
+
+type EnsureRootOrFullCouncil = EnsureOneOf<
+	AccountId,
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>
+>;
+
+type EnsureCompanyOrHalfCouncil = EnsureOneOf<
+	AccountId,
+	EnsureSignedBy<PlatformPot, AccountId>,
+	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
+>;
+
+type EnsureHalfCouncil = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
+type Ensure3OutOf4Council = pallet_collective::EnsureProportionMoreThan<_3, _4, AccountId, CouncilCollective>;
+type Ensure2OutOf3Council = pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilCollective>;
+type EnsureFullCouncil = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
 
 pub struct TakePlatformFeeRewardAuthor;
 impl OnUnbalanced<NegativeImbalance> for TakePlatformFeeRewardAuthor {
@@ -192,7 +226,7 @@ parameter_types! {
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
-	pub const SS58Prefix: u8 = 42;	// substitute with 57
+	pub const SS58Prefix: u8 = 57;
 }
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
@@ -561,11 +595,7 @@ impl pallet_staking::Config for Runtime {
 
 	/// The origin which can cancel a deferred slash. Root can always do this.
 	/// A super-majority of the council can cancel the slash.
-	type SlashCancelOrigin = EnsureOneOf<
-		AccountId,
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>
-	>;
+	type SlashCancelOrigin = EnsureRootOr3OutOf4Council;
 
 	/// Interface for interacting with a session pallet.
 	type SessionInterface = Self;
@@ -651,30 +681,30 @@ impl pallet_democracy::Config for Runtime {
 	/// Origin from which the next tabled referendum may be forced. This is a normal
 	/// "super-majority-required" referendum.
 	/// A straight majority of the council can decide what their next motion is.
-	type ExternalOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
+	type ExternalOrigin = EnsureHalfCouncil;
 
 	/// Origin from which the next tabled referendum may be forced; this allows for the tabling of
 	/// a majority-carries referendum.
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-	type ExternalMajorityOrigin = pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
+	type ExternalMajorityOrigin = Ensure3OutOf4Council;
 
 	/// Origin from which the next tabled referendum may be forced; this allows for the tabling of
 	/// a negative-turnout-bias (default-carries) referendum.
 	/// A unanimous council can have the next scheduled referendum be a straight default-carries
 	/// (NTB) vote.
-	type ExternalDefaultOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
+	type ExternalDefaultOrigin = EnsureFullCouncil;
 
 	/// Origin from which the next majority-carries (or more permissive) referendum may be tabled to
 	/// vote according to the `FastTrackVotingPeriod` asynchronously in a similar manner to the
 	/// emergency origin. It retains its threshold method.
 	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
-	type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
+	type FastTrackOrigin = Ensure2OutOf3Council;
 
 	/// Origin from which the next majority-carries (or more permissive) referendum may be tabled to
 	/// vote immediately and asynchronously in a similar manner to the emergency origin. It retains
 	/// its threshold method.
-	type InstantOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
+	type InstantOrigin = EnsureFullCouncil;
 
 	/// Indicator for whether an emergency origin is even allowed to happen. Some chains may want
 	/// to set this permanently to `false`, others may want to condition it on things such as
@@ -686,23 +716,15 @@ impl pallet_democracy::Config for Runtime {
 
 	/// Origin from which any referendum may be cancelled in an emergency.
 	/// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-	type CancellationOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
+	type CancellationOrigin = Ensure2OutOf3Council;
 
 	/// Origin from which a proposal may be cancelled and its backers slashed.
 	/// To cancel a proposal before it has been passed, the council must be unanimous or
 	/// Root must agree.
-	type CancelProposalOrigin = EnsureOneOf<
-		AccountId,
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
-	>;
+	type CancelProposalOrigin = EnsureFullCouncil;
 
 	/// Origin from which proposals may be blacklisted.
-	type BlacklistOrigin = EnsureOneOf<
-		AccountId,
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
-	>;
+	type BlacklistOrigin = EnsureFullCouncil;
 
 	/// Origin for anyone able to veto proposals.
 	///
@@ -782,16 +804,16 @@ impl pallet_membership::Config<pallet_membership::Instance2> for Runtime {
 	type AddOrigin = EnsureRootOrHalfCouncil;
 
 	/// Required origin for removing a member (though can always be Root).
-	type RemoveOrigin = EnsureRootOrHalfCouncil;
+	type RemoveOrigin = EnsureHalfCouncil;
 
 	/// Required origin for adding and removing a member in a single action.
-	type SwapOrigin = EnsureRootOrHalfCouncil;
+	type SwapOrigin = EnsureHalfCouncil;
 
 	/// Required origin for resetting membership.
-	type ResetOrigin = EnsureRootOrHalfCouncil;
+	type ResetOrigin = Ensure3OutOf4Council;
 
 	/// Required origin for setting or resetting the prime member.
-	type PrimeOrigin = EnsureRootOrHalfCouncil;
+	type PrimeOrigin = Ensure3OutOf4Council;
 
 	/// The receiver of the signal for when the membership has been initialized. This happens pre-
 	/// genesis and will usually be the same as `MembershipChanged`. If you need to do something
@@ -895,11 +917,6 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
-type EnsureRootOrHalfCouncil = EnsureOneOf<
-	AccountId,
-	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
->;
 impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type Event = Event;
 
@@ -953,18 +970,10 @@ impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
 
 	/// Origin from which approvals must come.
-	type ApproveOrigin = EnsureOneOf<
-		AccountId,
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<_3, _5, AccountId, CouncilCollective>
-	>;
+	type ApproveOrigin = Ensure3OutOf4Council;
 
 	/// Origin from which rejections must come.
-	type RejectOrigin = EnsureOneOf<
-		AccountId,
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
-	>;
+	type RejectOrigin = EnsureHalfCouncil;
 	type Event = Event;
 
 	/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
@@ -1241,7 +1250,7 @@ impl melodity_track_election::Config for Runtime {
 	type MembershipChanged = ();
 
 	/// Required origin for making all the administrative modifications
-	type ControllerOrigin = EnsureRootOrHalfCouncil;
+	type ControllerOrigin = EnsureCompanyOrHalfCouncil;
 
 	/// Percentage of the pool prize to reward to the first classified
 	type FirstPrize = FirstPrize;
@@ -1307,10 +1316,10 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 
 	/// The origin which may forcibly set or remove a name. Root can always do this.
-	type ForceOrigin = EnsureRootOrHalfCouncil;
+	type ForceOrigin = Ensure3OutOf4Council;
 
 	/// The origin which may add or remove registrars. Root can always do this.
-	type RegistrarOrigin = EnsureRootOrHalfCouncil;
+	type RegistrarOrigin = Ensure3OutOf4Council;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 

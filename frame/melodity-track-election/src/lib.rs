@@ -473,7 +473,9 @@ decl_module! {
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of the `dest` in the `Pool`.
-		#[weight = 1_000_000_000]
+		/// 
+		/// zero weight as it should be callable by anyone even without any balance
+		#[weight = 0]
 		pub fn score(
 			origin,
 			dest: <T::Lookup as StaticLookup>::Source,
