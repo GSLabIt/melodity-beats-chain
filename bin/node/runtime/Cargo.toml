@@ -1,12 +1,12 @@
 [package]
 name = "node-runtime"
 version = "2.0.1"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors = ["Emanuele (ebalo) Balsamo <emanuele.balsamo@dolabs.studio>"]
 edition = "2018"
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.dev"
-repository = "https://github.com/paritytech/substrate/"
+homepage = "https://dolabs.studio"
+repository = "https://github.com/DoDuet/melodity-beats-chain-v2"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

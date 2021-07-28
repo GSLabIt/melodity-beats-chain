@@ -1,14 +1,14 @@
 [package]
 name = "node-cli"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-description = "Generic Substrate node implementation in Rust."
+authors = ["Emanuele (ebalo) Balsamo <emanuele.balsamo@dolabs.studio>"]
+description = "Melodity beats node implementation in Rust."
 build = "build.rs"
 edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-default-run = "substrate"
-homepage = "https://substrate.dev"
-repository = "https://github.com/paritytech/substrate/"
+default-run = "melodity-beats-node"
+homepage = "https://dolabs.studio"
+repository = "https://github.com/DoDuet/melodity-beats-chain-v2"
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see
@@ -25,7 +25,7 @@ is-it-maintained-issue-resolution = { repository = "paritytech/substrate" }
 is-it-maintained-open-issues = { repository = "paritytech/substrate" }
 
 [[bin]]
-name = "substrate"
+name = "melodity-beats-node"
 path = "bin/main.rs"
 required-features = ["cli"]
 
