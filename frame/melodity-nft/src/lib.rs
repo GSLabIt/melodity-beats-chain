@@ -78,14 +78,24 @@ pub mod module {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
 		/// The class ID type
 		type ClassId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+
 		/// The token ID type
 		type TokenId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+
 		/// The class properties type
 		type ClassData: Parameter + Member + MaybeSerializeDeserialize;
+
 		/// The token properties type
 		type TokenData: Parameter + Member + MaybeSerializeDeserialize;
+
+		// TODO: add payment fee for nft mint depending on the class of nft
+		// TODO: add enabled flag for nft mint depending on the class of nft
+		// TODO: add nft minting fee that goes to the platform pot
+		/// Required origin for making all the administrative modifications
+		//type ControllerOrigin: EnsureOrigin<Self::Origin>;
 	}
 
 	pub type ClassInfoOf<T> =

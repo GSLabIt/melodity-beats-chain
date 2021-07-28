@@ -31,7 +31,7 @@ use frame_support::{
 	},
 	traits::{
 		Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness, LockIdentifier,
-		U128CurrencyToVote,
+		U128CurrencyToVote, Contains
 	},
 };
 use frame_system::{
@@ -132,6 +132,16 @@ type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 parameter_types! {
 	/// Do Labs - Company address (root address)
 	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
+	pub PlatformPotVec: Vec<AccountId> = vec![PlatformPot::get()];
+}
+
+impl Contains<AccountId> for PlatformPotVec {
+	fn sorted_members() -> Vec<AccountId> {
+		Self::get()
+	}
+	fn contains(t: &AccountId) -> bool {
+		Self::get().contains(t)
+	}
 }
 
 type EnsureRootOrHalfCouncil = EnsureOneOf<
@@ -160,7 +170,7 @@ type EnsureRootOrFullCouncil = EnsureOneOf<
 
 type EnsureCompanyOrHalfCouncil = EnsureOneOf<
 	AccountId,
-	EnsureSignedBy<PlatformPot, AccountId>,
+	EnsureSignedBy<PlatformPotVec, AccountId>,
 	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
 >;
 
@@ -1215,7 +1225,7 @@ parameter_types! {
 	pub CandidateDeposit: Balance = 1000 * DOLLARS;
 	pub Period: BlockNumber = 7 * DAYS;
 	pub FirstPrize: Percent = Percent::from_parts(40);
-	pub SecondPrize: Percent = Percent::from_parts(20);
+	pub SecondPrize: Percent = Percent::from_parts(25);
 	pub ThirdPrize: Percent = Percent::from_parts(10);
 	pub PlatformFee: Percent = Percent::from_parts(15);
 	pub VoterPrize: Balance = 50 * DOLLARS;
@@ -1319,7 +1329,7 @@ impl pallet_identity::Config for Runtime {
 	type ForceOrigin = Ensure3OutOf4Council;
 
 	/// The origin which may add or remove registrars. Root can always do this.
-	type RegistrarOrigin = Ensure3OutOf4Council;
+	type RegistrarOrigin = EnsureHalfCouncil;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1440,7 +1450,7 @@ impl pallet_assets::Config for Runtime {
 
 	/// The origin which may forcibly create or destroy an asset or otherwise alter privileged
 	/// attributes.
-	type ForceOrigin = EnsureRootOrHalfCouncil;
+	type ForceOrigin = Ensure3OutOf4Council;
 
 	/// The basic amount of funds that must be reserved when creating a new asset class.
 	type AssetDepositBase = AssetDepositBase;
