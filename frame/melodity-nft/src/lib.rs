@@ -94,7 +94,7 @@ pub mod module {
 		// TODO: add payment fee for nft mint depending on the class of nft
 		// TODO: add enabled flag for nft mint depending on the class of nft
 		// TODO: add nft minting fee that goes to the platform pot
-		/// Required origin for making all the administrative modifications
+		// Required origin for making all the administrative modifications
 		//type ControllerOrigin: EnsureOrigin<Self::Origin>;
 	}
 

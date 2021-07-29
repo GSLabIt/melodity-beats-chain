@@ -8,7 +8,7 @@ members = [
 	"bin/node/runtime",
 #	"bin/node/testing",
 #	"bin/utils/chain-spec-builder",
-#	"bin/utils/subkey",
+	"bin/utils/subkey",
 #	"client/api",
 #	"client/authority-discovery",
 #	"client/basic-authorship",

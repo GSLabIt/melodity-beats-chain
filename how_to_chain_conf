@@ -1,0 +1,180 @@
+- retrieve the address of the first validator
+	- retrieve the //stash address
+	- follow the format below
+- run the configuration commands
+	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node1-babe.json"
+	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node1-grandpa.json"
+	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node2-babe.json"
+	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node2-grandpa.json"
+
+	where the content of the babe file is:
+	{
+		"jsonrpc":"2.0",
+		"id":1,
+		"method":"author_insertKey",
+		"params": [
+			"babe",
+			"your seed",
+			"your hexed controller address"
+		]
+	}
+	
+	and the content of the grandpa file is:
+	{
+		"jsonrpc":"2.0",
+		"id":1,
+		"method":"author_insertKey",
+		"params": [
+			"gran",
+			"your seed",
+			"your hexed controller address with scheme = ed25519"
+		]
+	}
+
+- once the two nodes are set up correctly a complete restart of the two node is needed, 
+	remember to start the FIRST node AFTER SECOND node
+
+
+- for all the other validators simply run the node, connect to the rpc
+	of the node, rotate keys, go back to any other node, enter stacking
+	and add a validator.
+	at the end of the era it will be included (if nominated)
+
+
+
+
+DEFINITION:
+
+	"palletBalances": {
+        "balances": [
+          [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            10000000000000000000
+          ],
+          [
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+            10000000000000000000
+          ],
+          [
+            "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+            10000000000000000000
+          ],
+          [
+            "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",
+            10000000000000000000
+          ],
+          [
+            "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",
+            10000000000000000000
+          ],
+          [
+            "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+            10000000000000000000
+          ],
+          [
+            "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",
+            10000000000000000000
+          ],
+          [
+            "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
+            10000000000000000000
+          ],
+          [
+            "5Ck5SLSHYac6WFt5UZRSsdJjwmpSZq85fd5TRNAdZQVzEAPT",
+            10000000000000000000
+          ],
+          [
+            "5HKPmK9GYtE1PSLsS1qiYU9xQ9Si1NcEhdeCq9sw5bqu4ns8",
+            10000000000000000000
+          ],
+          [
+            "5FCfAonRZgTFrTd9HREEyeJjDpT397KMzizE6T3DvebLFE7n",
+            10000000000000000000
+          ],
+          [
+            "5CRmqmsiNFExV6VbdmPJViVxrWmkaXXvBrSX8oqBT8R9vmWk",
+            10_000_000__000000000000
+          ]
+        ]
+    },
+	"palletStaking": {
+        "historyDepth": 84,
+        "validatorCount": 4,
+        "minimumValidatorCount": 2,
+        "invulnerables": [
+          "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",							// stash address A
+          "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc"							// stash address B
+        ],
+        "forceEra": "NotForcing",
+        "slashRewardFraction": 000_100_000_000,
+        "canceledPayout": 0,
+        "stakers": [
+          [
+            "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",							// stash address A
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",							// controller address A
+            10_000_000000000000,
+            "Validator"
+          ],
+          [
+            "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",							// stash address B
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",							// controller address B
+            10_000_000000000000,
+            "Validator"
+          ]
+        ]
+      },
+      "palletSession": {
+        "keys": [
+          [
+            "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",							// stash address A
+            "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",							// stash address A
+            {
+              "grandpa": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",			// controller address A ed25519
+              "babe": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",				// controller address A
+              "im_online": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",			// controller address A
+              "authority_discovery": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"	// controller address A
+            }
+          ],
+          [
+            "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",	// stash address B
+            "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",	// stash address B
+            {
+              "grandpa": "5GoNkf6WdbxCFnPdAnYYQyCjAKPJgLNxXwPjwTh6DGg6gN3E",			// controller address B ed25519
+              "babe": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",				// controller address B
+              "im_online": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",			// controller address B
+              "authority_discovery": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"	// controller address B
+            }
+          ]
+        ]
+      },
+      "palletDemocracy": {},
+      "palletCollectiveInstance1": {
+        "phantom": null,
+        "members": []
+      },
+      "palletMembershipInstance2": {
+        "members": [],
+        "phantom": null
+      },
+      "palletCollectiveInstance2": {
+        "phantom": null,
+        "members": [
+          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",							// controller address A
+          "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",							// controller address B
+          "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+          "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",
+          "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",
+          "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+        ]
+      },
+      "palletMembershipInstance1": {
+        "members": [],
+        "phantom": null
+      },
+      "palletGrandpa": {
+        "authorities": []
+      },
+      "palletTreasury": {},
+      "palletSudo": {
+        "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"						// controller address A (root address)
+      },

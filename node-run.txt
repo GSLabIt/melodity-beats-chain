@@ -1,0 +1,2 @@
+./target/release/melodity-beats-node --chain chain-conf.json --base-path /tmp/node1 --validator --name Node1
+./target/release/melodity-beats-node --chain chain-conf.json --base-path /tmp/node3 --port 30335 --ws-port 9947 --rpc-port 9935 --validator --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWPPj6EdJN5vUZv84Asan1n7VCddnXJAvB5m65zeKDEABZ --name Node3

@@ -8694,6 +8694,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "subkey"
+version = "2.0.0"
+dependencies = [
+ "sc-cli",
+ "structopt",
+]
+
+[[package]]
 name = "substrate-bip39"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
