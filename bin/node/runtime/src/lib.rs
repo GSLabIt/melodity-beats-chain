@@ -1405,7 +1405,7 @@ parameter_types! {
 	pub const MaxGenerateRandom: u32 = 25;
 }
 
-impl pallet_lottery::Config for Runtime {
+/* impl pallet_lottery::Config for Runtime {
 	type ModuleId = LotteryModuleId;
 	type Call = Call;
 	type Event = Event;
@@ -1432,7 +1432,7 @@ impl pallet_lottery::Config for Runtime {
 	/// but also the more likely that the chosen winner is done fairly.
 	type MaxGenerateRandom = MaxGenerateRandom;
 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
-}
+} */
 
 parameter_types! {
 	pub const AssetDepositBase: Balance = 1000 * DOLLARS;
@@ -1473,14 +1473,24 @@ impl pallet_assets::Config for Runtime {
 
 impl melodity_nft::Config for Runtime {
 	type Event = Event;
+
 	/// The class ID type
 	type ClassId = u128;
+
 	/// The token ID type
 	type TokenId = u128;
+
 	/// The class properties type
 	type ClassData = Vec<u8>;
+
 	/// The token properties type
 	type TokenData = melodity_nft::MelodityNFTData;
+
+	/// Required origin for making all the administrative modifications
+	type ControllerOrigin = EnsureHalfCouncil;
+
+	/// The currency used for fee payment.
+	type Currency = Balances;
 }
 
 construct_runtime!(
@@ -1525,7 +1535,7 @@ construct_runtime!(
 		// Tips: pallet_tips::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
-		Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 
 		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>},
 		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},

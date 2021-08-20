@@ -306,7 +306,8 @@ pub fn testnet_genesis(
 					root_key.clone(), 
 					"Melodity Track - MELT".as_bytes().to_vec(), 
 					vec![], 
-					vec![]
+					vec![],
+					(true, 1500_000_000_000_000),
 				)
 			]
 		}),

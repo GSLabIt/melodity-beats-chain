@@ -22,7 +22,12 @@
 #![allow(clippy::unused_unit)]
 
 use codec::{Decode, Encode};
-use frame_support::{ensure, pallet_prelude::*, Parameter};
+use frame_support::{
+	ensure, pallet_prelude::*, Parameter,
+	traits::{
+		Currency, ReservableCurrency, WithdrawReasons, ExistenceRequirement
+	},
+};
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Member, One, Zero
@@ -42,9 +47,12 @@ use serde::{
 mod mock;
 mod tests;
 
+type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type Balance = u128;
+
 /// Class info
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct ClassInfo<TokenId, AccountId, Data> {
+pub struct ClassInfo<TokenId, AccountId, Data, T: Config> {
 	/// Total issuance for the class
 	pub total_issuance: TokenId,
 	/// Class owner
@@ -53,6 +61,8 @@ pub struct ClassInfo<TokenId, AccountId, Data> {
 	pub data: Data,
 	/// Class metadata
 	pub metadata: Vec<u8>,
+	/// Class internal settings definition
+	pub class_settings: ClassSettings<T>,
 }
 
 /// Token info
@@ -69,6 +79,16 @@ pub struct TokenInfo<AccountId, Data> {
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
 pub struct MelodityNFTData {
 	pub json: Vec<u8>,
+}
+
+/// NFT class settings
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct ClassSettings<T: Config> {
+	/// Fee to be paid from the minter if the nft is publicly mintable
+	pub mint_fee: BalanceOf<T>,
+	/// Flag indicating whether the nft is publicly mintable or not
+	pub mintable: bool,
 }
 
 #[frame_support::pallet]
@@ -94,12 +114,15 @@ pub mod module {
 		// TODO: add payment fee for nft mint depending on the class of nft
 		// TODO: add enabled flag for nft mint depending on the class of nft
 		// TODO: add nft minting fee that goes to the platform pot
-		// Required origin for making all the administrative modifications
-		//type ControllerOrigin: EnsureOrigin<Self::Origin>;
+		/// Required origin for making all the administrative modifications
+		type ControllerOrigin: EnsureOrigin<Self::Origin>;
+
+		/// The currency used for fee payment.
+		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 	}
 
 	pub type ClassInfoOf<T> =
-		ClassInfo<<T as Config>::TokenId, <T as frame_system::Config>::AccountId, <T as Config>::ClassData>;
+		ClassInfo<<T as Config>::TokenId, <T as frame_system::Config>::AccountId, <T as Config>::ClassData, T>;
 	pub type TokenInfoOf<T> = TokenInfo<<T as frame_system::Config>::AccountId, <T as Config>::TokenData>;
 
 	pub type GenesisTokenData<T> = (
@@ -111,6 +134,7 @@ pub mod module {
 		Vec<u8>,                                // Token class metadata
 		<T as Config>::ClassData,
 		Vec<GenesisTokenData<T>>, // Vector of tokens belonging to this class
+		(bool, BalanceOf<T>) // tuple defining nft class minting capabilities
 	);
 
 	/// Error for non-fungible-token module.
@@ -131,6 +155,8 @@ pub mod module {
 		/// Can not destroy class
 		/// Total issuance is not 0
 		CannotDestroyClass,
+		/// Public minting not allowed for the provided class
+		PublicMintingNotAllowed
 	}
 
 	#[pallet::event]
@@ -201,13 +227,15 @@ pub mod module {
 				let class_id = Pallet::<T>::internal_create_class(
 					&token_class.0, 
 					token_class.1.to_vec(), 
-					token_class.2.clone()
+					token_class.2.clone(),
+					token_class.4.0,
+					token_class.4.1
 				).expect("Create class cannot fail while building genesis");
 				for (account_id, token_data) in &token_class.3 {
 					Pallet::<T>::internal_mint(
 						&account_id, 
 						class_id, 
-						token_data.clone()
+						token_data.clone(),
 					).expect("Token mint cannot fail during genesis");
 				}
 			})
@@ -229,8 +257,10 @@ pub mod module {
 			owner: T::AccountId,
 			metadata: Vec<u8>,
 			data: T::ClassData,
+			mintable: bool,
+			minting_fee: BalanceOf<T>
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::ControllerOrigin::ensure_origin(origin)?;
 
 			let class_id = NextClassId::<T>::try_mutate(|id| -> Result<T::ClassId, DispatchError> {
 				let current_id = *id;
@@ -243,6 +273,10 @@ pub mod module {
 				total_issuance: Default::default(),
 				owner: owner.clone(),
 				data: data.clone(),
+				class_settings: ClassSettings {
+					mint_fee: minting_fee,
+					mintable
+				}
 			};
 			Classes::<T>::insert(class_id, info);
 
@@ -290,11 +324,65 @@ pub mod module {
 		#[pallet::weight(100_000_000)]
 		pub fn mint(
 			origin: OriginFor<T>,
+			class_id: T::ClassId,
+			data: T::TokenData,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+
+			// retrieve the nft class
+			Classes::<T>::try_mutate(class_id, |nft_class_info| -> DispatchResultWithPostInfo {
+				let nft_class = nft_class_info.as_ref().ok_or(Error::<T>::ClassNotFound)?;
+
+				// if the class is mintable enters
+				if(nft_class.class_settings.mintable) {
+					// in case a fee is required for minting pay the fee
+					T::Currency::withdraw(&owner, nft_class.class_settings.mint_fee.into(), WithdrawReasons::TRANSACTION_PAYMENT, ExistenceRequirement::KeepAlive)?;
+				
+					// proceed to the standard minting functions
+					NextTokenId::<T>::try_mutate(class_id, |id| -> DispatchResult {	
+						let token_id = *id;
+						*id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableTokenId)?;
+		
+						Classes::<T>::try_mutate(class_id, |class_info| -> DispatchResult {
+							let info = class_info.as_mut().ok_or(Error::<T>::ClassNotFound)?;
+							info.total_issuance = info
+								.total_issuance
+								.checked_add(&One::one())
+								.ok_or(Error::<T>::NumOverflow)?;
+							Ok(())
+						})?;
+		
+						let token_info = TokenInfo {
+							owner: owner.clone(),
+							data,
+						};
+						Tokens::<T>::insert(class_id, token_id, token_info);
+		
+						#[cfg(not(feature = "disable-tokens-by-owner"))]
+						TokensByOwner::<T>::insert(owner.clone(), (class_id, token_id), ());
+		
+						Self::deposit_event(Event::Mint(class_id, token_id, owner));
+		
+						Ok(())
+					})?;
+					Ok(().into())
+				}
+				else {
+					Err(Error::<T>::PublicMintingNotAllowed.into())
+				}
+			})
+		}
+
+		/// Mint NFT(non fungible token) to `owner`
+		#[pallet::weight(100_000_000)]
+		pub fn mintTo(
+			origin: OriginFor<T>,
 			owner: T::AccountId,
 			class_id: T::ClassId,
 			data: T::TokenData,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::ControllerOrigin::ensure_origin(origin)?;
+			
 			NextTokenId::<T>::try_mutate(class_id, |id| -> DispatchResultWithPostInfo {
 				let token_id = *id;
 				*id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableTokenId)?;
@@ -416,6 +504,8 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		metadata: Vec<u8>,
 		data: T::ClassData,
+		mintable: bool,
+		minting_fee: BalanceOf<T>
 	) -> Result<T::ClassId, DispatchError> {
 		let class_id = NextClassId::<T>::try_mutate(|id| -> Result<T::ClassId, DispatchError> {
 			let current_id = *id;
@@ -428,6 +518,10 @@ impl<T: Config> Pallet<T> {
 			total_issuance: Default::default(),
 			owner: owner.clone(),
 			data,
+			class_settings: ClassSettings {
+				mint_fee: minting_fee,
+				mintable
+			}
 		};
 		Classes::<T>::insert(class_id, info);
 
