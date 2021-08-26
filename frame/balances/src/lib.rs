@@ -171,7 +171,7 @@ use frame_support::traits::GenesisBuild;
 use sp_runtime::{
 	RuntimeDebug, DispatchResult, DispatchError,
 	traits::{
-		Zero, AtLeast32BitUnsigned, StaticLookup, CheckedAdd, CheckedSub,
+		Zero, AtLeast128BitUnsigned, StaticLookup, CheckedAdd, CheckedSub,
 		MaybeSerializeDeserialize, Saturating, Bounded, StoredMapError,
 	},
 };
@@ -190,7 +190,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The balance of an account.
-		type Balance: Parameter + Member + AtLeast32BitUnsigned + Codec + Default + Copy +
+		type Balance: Parameter + Member + AtLeast128BitUnsigned + Codec + Default + Copy +
 			MaybeSerializeDeserialize + Debug;
 
 		/// Handler for the unbalanced reduction when removing a dust account.

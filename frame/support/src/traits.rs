@@ -27,7 +27,7 @@ use sp_runtime::{
 	ConsensusEngineId, DispatchResult, DispatchError,
 	traits::{
 	MaybeSerializeDeserialize, AtLeast32Bit, Saturating, TrailingZeroInput, Bounded, Zero,
-	BadOrigin, AtLeast32BitUnsigned, Convert, UniqueSaturatedFrom, UniqueSaturatedInto,
+	BadOrigin, AtLeast32BitUnsigned, AtLeast128BitUnsigned, Convert, UniqueSaturatedFrom, UniqueSaturatedInto,
 	SaturatedConversion, StoredMapError,
 	},
 };
@@ -923,7 +923,7 @@ impl<
 /// Abstraction over a fungible assets system.
 pub trait Currency<AccountId> {
 	/// The balance of an account.
-	type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug +
+	type Balance: AtLeast128BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug +
 		Default;
 
 	/// The opaque token type for an imbalance. This is returned by unbalanced operations

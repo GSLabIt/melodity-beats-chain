@@ -22,7 +22,7 @@ use frame_support::parameter_types;
 type AccountId = u64;
 type AccountIndex = u32;
 type BlockNumber = u64;
-type Balance = u64;
+type Balance = u128;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -59,7 +59,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();

@@ -82,8 +82,9 @@ pallet-utility = { version = "3.0.0", default-features = false, path = "../../..
 pallet-transaction-payment = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment" }
 pallet-transaction-payment-rpc-runtime-api = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment/rpc/runtime-api/" }
 pallet-vesting = { version = "3.0.0", default-features = false, path = "../../../frame/vesting" }
-melodity-nft = {default-features = false, version = '1.0.0', path = "../../../frame/melodity-nft"}
-melodity-track-election = {default-features = false, version = '1.0.0', path = "../../../frame/melodity-track-election"}
+melodity-nft = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-nft" }
+melodity-track-election = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-track-election" }
+melodity-bridge = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-bridge" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "4.0.0", path = "../../../utils/wasm-builder" }
@@ -154,7 +155,8 @@ std = [
 	"pallet-recovery/std",
 	"pallet-vesting/std",
 	"melodity-nft/std",
-	"melodity-track-election/std"
+	"melodity-track-election/std",
+	"melodity-bridge/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

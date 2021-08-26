@@ -25,7 +25,7 @@ use node_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, /* ContractsConfig, */ CouncilConfig,
 	DemocracyConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, /* ElectionsConfig, */ IndicesConfig, /* SocietyConfig, */ SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig, TrackElectionConfig,
+	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig, TrackElectionConfig, BridgeConfig
 };
 use node_runtime::Block;
 use node_runtime::constants::currency::*;
@@ -249,6 +249,11 @@ pub fn testnet_genesis(
 		frame_system: Some(SystemConfig {
 			code: wasm_binary_unwrap().to_vec(),
 			changes_trie_config: Default::default(),
+		}),
+		melodity_bridge: Some(BridgeConfig {
+			bridge_balance: 100_000_000_000000000000000000,	// 100 mln
+			platform_fee: 1250000000,						// 12.5%
+			conversion_minimum: 10_000_000000000000			// 10_000
 		}),
 		pallet_balances: Some(BalancesConfig {
 			balances: endowed_accounts.iter().cloned()

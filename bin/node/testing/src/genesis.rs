@@ -56,6 +56,7 @@ pub fn config_endowed(
 	);
 
 	GenesisConfig {
+		melodity_bridge: Some(Default::default()),
 		frame_system: Some(SystemConfig {
 			changes_trie_config: if support_changes_trie { Some(ChangesTrieConfiguration {
 				digest_interval: 2,

@@ -1493,6 +1493,30 @@ impl melodity_nft::Config for Runtime {
 	type Currency = Balances;
 }
 
+parameter_types! {
+	pub const FeeDecimalPositions: Balance = 100_000_000;
+	pub const OneHunderd: Balance = 100;
+}
+
+impl melodity_bridge::Config for Runtime {
+	type Event = Event;
+
+	/// Required origin for making all the administrative modifications
+	type ControllerOrigin = Ensure2OutOf3Council;
+
+	/// The currency used for fee payment.
+	type Currency = Balances;
+
+	/// The address where the conversion fee will be deposited
+	type PlatformPot = PlatformPot;
+
+	/// The number of decimal positions for the fee definition
+	type FeeDecimalPositions = FeeDecimalPositions;	// 8
+
+	/// 100 in the balanceof unit
+	type OneHunderd = OneHunderd;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1539,6 +1563,7 @@ construct_runtime!(
 
 		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>},
 		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},
+		Bridge: melodity_bridge::{Module, Call, Storage, Event<T>, Config<T>},
 	}
 );
 
