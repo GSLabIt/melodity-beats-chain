@@ -93,8 +93,8 @@ pub mod module {
 	pub enum Event<T: Config> {
 		/// MELB converted successfully \[BSC_address, MELD_amount\]
 		Converted(Vec<u8>, u128),
-		/// Fee taken successfully \[token_owner, taken_fee, converted_amount, MELD_amount\]
-		FeeTaken(T::AccountId, u128, u128, u128),
+		/// Fee taken successfully \[token_owner, taken_fee, converted_amount\]
+		FeeTaken(T::AccountId, u128, u128),
 		/// Available MELD for bridge conversion updated sucessfully \[available_meld\]
 		AvailableMELDUpdated(u128),
 		/// Platform fee for bridge conversion updated sucessfully \[fee\]
@@ -232,6 +232,8 @@ pub mod module {
 				// transfer to the platform pot the taken fees
 				if(fee > 0u128) {
 					T::Currency::transfer(&from, &T::PlatformPot::get(), fee.into(), ExistenceRequirement::AllowDeath)?;
+					// emit event
+					Self::deposit_event(Event::FeeTaken(from, fee, real_amount));
 				}
 
 				// The conversion rate must be computed inline because the order in which operations gets
