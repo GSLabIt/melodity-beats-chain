@@ -34,7 +34,7 @@ use pallet_session::historical as pallet_session_historical;
 type AccountId = u64;
 type AccountIndex = u32;
 type BlockNumber = u64;
-type Balance = u64;
+type Balance = u128;
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =

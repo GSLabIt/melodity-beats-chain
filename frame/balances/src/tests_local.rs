@@ -91,7 +91,7 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 }
 impl Config for Test {
-	type Balance = u64;
+	type Balance = u128;
 	type DustRemoval = ();
 	type Event = Event;
 	type ExistentialDeposit = ExistentialDeposit;

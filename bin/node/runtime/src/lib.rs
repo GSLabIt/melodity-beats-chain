@@ -1495,7 +1495,6 @@ impl melodity_nft::Config for Runtime {
 
 parameter_types! {
 	pub const FeeDecimalPositions: Balance = 100_000_000;
-	pub const OneHunderd: Balance = 100;
 }
 
 impl melodity_bridge::Config for Runtime {
@@ -1512,9 +1511,6 @@ impl melodity_bridge::Config for Runtime {
 
 	/// The number of decimal positions for the fee definition
 	type FeeDecimalPositions = FeeDecimalPositions;	// 8
-
-	/// 100 in the balanceof unit
-	type OneHunderd = OneHunderd;
 }
 
 construct_runtime!(
@@ -1563,7 +1559,7 @@ construct_runtime!(
 
 		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>},
 		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},
-		Bridge: melodity_bridge::{Module, Call, Storage, Event<T>, Config<T>},
+		Bridge: melodity_bridge::{Module, Call, Storage, Event<T>, Config},
 	}
 );
 

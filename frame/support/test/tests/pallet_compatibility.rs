@@ -229,12 +229,12 @@ impl frame_system::Config for Runtime {
 impl pallet::Config for Runtime {
 	type Event = Event;
 	type SomeConst = SomeConst;
-	type Balance = u64;
+	type Balance = u128;
 }
 impl pallet_old::Config for Runtime {
 	type Event = Event;
 	type SomeConst = SomeConst;
-	type Balance = u64;
+	type Balance = u128;
 }
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;

@@ -371,7 +371,7 @@ impl pallet::Config for Runtime {
 	type MyGetParam = MyGetParam;
 	type MyGetParam2 = MyGetParam2;
 	type MyGetParam3 = MyGetParam3;
-	type Balance = u64;
+	type Balance = u128;
 }
 
 impl pallet2::Config for Runtime {

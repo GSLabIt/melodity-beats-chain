@@ -621,7 +621,7 @@ mod tests {
 		type SS58Prefix = ();
 	}
 
-	type Balance = u64;
+	type Balance = u128;
 	parameter_types! {
 		pub const ExistentialDeposit: Balance = 1;
 	}

@@ -839,7 +839,7 @@ mod tests {
 	impl Config for TraitImpl {
 		type Origin = u32;
 		type BlockNumber = u32;
-		type Balance = u32;
+		type Balance = u128;
 		type DbWeight = DbWeight;
 		type PalletInfo = crate::tests::PanicPalletInfo;
 	}
@@ -953,7 +953,7 @@ mod tests {
 		);
 	}
 
-	type Balance = u64;
+	type Balance = u128;
 
 	// 0.5x^3 + 2.333x^2 + 7x - 10_000
 	struct Poly;

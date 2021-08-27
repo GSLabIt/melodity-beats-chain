@@ -82,7 +82,7 @@
 //! # use sp_npos_elections::{Support, Assignment};
 //!
 //! type AccountId = u64;
-//! type Balance = u64;
+//! type Balance = u128;
 //! type BlockNumber = u32;
 //!
 //! mod data_provider {

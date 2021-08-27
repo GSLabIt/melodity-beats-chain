@@ -719,11 +719,11 @@ mod tests {
 	}
 
 	impl event_module::Config for TestRuntime {
-		type Balance = u32;
+		type Balance = u128;
 	}
 
 	impl event_module2::Config for TestRuntime {
-		type Balance = u32;
+		type Balance = u128;
 	}
 
 	impl system::Config for TestRuntime {
@@ -734,11 +734,11 @@ mod tests {
 	}
 
 	impl event_module::Config for TestRuntime2 {
-		type Balance = u32;
+		type Balance = u128;
 	}
 
 	impl event_module2::Config for TestRuntime2 {
-		type Balance = u32;
+		type Balance = u128;
 	}
 
 	impl system_renamed::Config for TestRuntime2 {

@@ -144,7 +144,7 @@ mod tests {
 	}
 
 	impl pallet_test::Trait for Runtime {
-		type Balance = u32;
+		type Balance = u128;
 		type Event = ();
 	}
 }

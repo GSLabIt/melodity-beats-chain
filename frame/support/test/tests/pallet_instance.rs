@@ -264,12 +264,12 @@ impl frame_system::Config for Runtime {
 impl pallet::Config for Runtime {
 	type Event = Event;
 	type MyGetParam= MyGetParam;
-	type Balance = u64;
+	type Balance = u128;
 }
 impl pallet::Config<pallet::Instance1> for Runtime {
 	type Event = Event;
 	type MyGetParam= MyGetParam;
-	type Balance = u64;
+	type Balance = u128;
 }
 impl pallet2::Config for Runtime {
 	type Event = Event;

@@ -7931,6 +7931,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
+ "sp-core",
  "sp-debug-derive",
  "sp-std",
 ]

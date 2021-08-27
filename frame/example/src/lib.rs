@@ -770,7 +770,7 @@ mod tests {
 	}
 	impl pallet_balances::Config for Test {
 		type MaxLocks = ();
-		type Balance = u64;
+		type Balance = u128;
 		type DustRemoval = ();
 		type Event = Event;
 		type ExistentialDeposit = ExistentialDeposit;

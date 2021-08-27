@@ -1198,7 +1198,7 @@ mod tests {
 
 	impl pallet_balances::Config for Test {
 		type MaxLocks = ();
-		type Balance = u64;
+		type Balance = u128;
 		type DustRemoval = ();
 		type Event = Event;
 		type ExistentialDeposit = ExistentialDeposit;
@@ -1217,7 +1217,7 @@ mod tests {
 	impl Config for Test {
 		type Currency = Balances;
 		type Event = Event;
-		type Balance = u64;
+		type Balance = u128;
 		type AssetId = u32;
 		type ForceOrigin = frame_system::EnsureRoot<u64>;
 		type AssetDepositBase = AssetDepositBase;

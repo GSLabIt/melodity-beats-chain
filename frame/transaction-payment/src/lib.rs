@@ -694,7 +694,7 @@ mod tests {
 	}
 
 	impl pallet_balances::Config for Runtime {
-		type Balance = u64;
+		type Balance = u128;
 		type Event = Event;
 		type DustRemoval = ();
 		type ExistentialDeposit = ExistentialDeposit;
@@ -704,7 +704,7 @@ mod tests {
 	}
 
 	impl WeightToFeePolynomial for WeightToFee {
-		type Balance = u64;
+		type Balance = u128;
 
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 			smallvec![WeightToFeeCoefficient {
