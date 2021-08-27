@@ -247,8 +247,10 @@ pub mod module {
 				//	is done by multipling the ending value to 1e6.
 				// NOTE: using the previous method the last 6 decimal digits will always be 0
 
+				let truncated_available_meld = AvailableMeld::<T>::get().checked_div(1_000_000).ok_or(Error::<T>::Overflow)?;
+
 				// First phase, converted_amount * available_meld
-				let mut meld: u128 = real_amount.checked_mul(AvailableMeld::<T>::get()).ok_or(Error::<T>::Overflow)?;
+				let mut meld: u128 = real_amount.checked_mul(truncated_available_meld).ok_or(Error::<T>::Overflow)?;
 
 				let issuance: u128 = TryInto::<u128>::try_into(T::Currency::total_issuance())
 					.ok()
@@ -262,7 +264,7 @@ pub mod module {
 				meld = meld.checked_mul(1_000_000).ok_or(Error::<T>::Overflow)?;
 
 				AvailableMeld::<T>::try_mutate(|available_m| -> Result<u128, DispatchError> {
-					*available_m = amount.checked_sub(meld).ok_or(Error::<T>::BridgeExhausted)?;
+					*available_m = available_m.checked_sub(meld).ok_or(Error::<T>::BridgeExhausted)?;
 					Ok(*available_m)
 				})?;
 

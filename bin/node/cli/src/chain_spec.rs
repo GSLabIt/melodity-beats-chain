@@ -251,7 +251,7 @@ pub fn testnet_genesis(
 			changes_trie_config: Default::default(),
 		}),
 		melodity_bridge: Some(BridgeConfig {
-			bridge_balance: 100_000_000_000000000000,		// 100 mln (12 decimals)
+			bridge_balance: 100_000_000_000000000000000000,		// 100 mln (18 decimals)
 			platform_fee: 1250000000,						// 12.5% (8 decimals)
 			conversion_minimum: 10_000_000000000000			// 10_000 (12 decimals)
 		}),
