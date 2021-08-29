@@ -85,6 +85,7 @@ pallet-vesting = { version = "3.0.0", default-features = false, path = "../../..
 melodity-nft = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-nft" }
 melodity-track-election = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-track-election" }
 melodity-bridge = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-bridge" }
+melodity-airdrop = { default-features = false, version = '1.0.0', path = "../../../frame/melodity-airdrop" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "4.0.0", path = "../../../utils/wasm-builder" }
@@ -156,7 +157,8 @@ std = [
 	"pallet-vesting/std",
 	"melodity-nft/std",
 	"melodity-track-election/std",
-	"melodity-bridge/std"
+	"melodity-bridge/std",
+	"melodity-airdrop/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

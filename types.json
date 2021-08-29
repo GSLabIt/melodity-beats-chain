@@ -6,6 +6,22 @@
 		"MELU"
 	  ]
 	},
+	"AirdropInfoOf": {
+	  "id": "AirdropId",
+	  "name": "(Vec<u8>)",
+	  "url": "(Vec<u8>)",
+	  "airdrop_type": "AirdropTypes",
+	  "amount": "Balance"
+	},
+	"AirdropTypes": {
+	  "_enum": [
+		"Free",
+		"Reserved",
+		"Frozen",
+		"Fee"
+	  ]
+	},
+	"AirdropId": "u128",
 	"CurrencyIdOf": "CurrencyId",
 	"Amount": "i128",
 	"AmountOf": "Amount",

@@ -3473,6 +3473,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
+name = "melodity-airdrop"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "funty",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "melodity-bridge"
 version = "1.0.0"
 dependencies = [
@@ -4006,6 +4022,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
+ "melodity-airdrop",
  "melodity-bridge",
  "melodity-nft",
  "melodity-track-election",

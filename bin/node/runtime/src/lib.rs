@@ -73,6 +73,7 @@ use static_assertions::const_assert;
 use pallet_contracts::WeightInfo;
 use hex_literal::hex;
 
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 #[cfg(any(feature = "std", test))]
@@ -430,7 +431,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type Event = Event;
 	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = frame_system::Module<Runtime>;
+	type AccountStore = frame_system::Module<Runtime>; // AccountStore; 
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1513,6 +1514,19 @@ impl melodity_bridge::Config for Runtime {
 	type FeeDecimalPositions = FeeDecimalPositions;	// 8
 }
 
+impl melodity_airdrop::Config for Runtime {
+	type Event = Event;
+
+	/// Required origin for making all the administrative modifications
+	type ControllerOrigin = EnsureRootOrHalfCouncil;
+
+	/// The currency used for fee payment.
+	type AirdropControllerOrigin = EnsureRoot<AccountId>;
+
+	/// The address where the conversion fee will be deposited
+	type Currency = Balances;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1560,6 +1574,7 @@ construct_runtime!(
 		Nft: melodity_nft::{Module, Call, Storage, Event<T>, Config<T>},
 		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},
 		Bridge: melodity_bridge::{Module, Call, Storage, Event<T>, Config},
+		Airdrop: melodity_airdrop::{Module, Call, Storage, Event<T>},
 	}
 );
 
