@@ -18,14 +18,16 @@
 
 //! Substrate chain configurations.
 
+use std::{collections::BTreeMap, str::FromStr};
 use sc_chain_spec::ChainSpecExtension;
-use sp_core::{Pair, Public, crypto::UncheckedInto, sr25519};
+use sp_core::{Pair, Public, crypto::UncheckedInto, sr25519, H160, U256};
 use serde::{Serialize, Deserialize};
 use node_runtime::{
 	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, /* ContractsConfig, */ CouncilConfig,
 	DemocracyConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, /* ElectionsConfig, */ IndicesConfig, /* SocietyConfig, */ SudoConfig, SystemConfig,
-	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig, TrackElectionConfig, BridgeConfig
+	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig, TrackElectionConfig, BridgeConfig,
+	EvmConfig, EthereumConfig,
 };
 use node_runtime::Block;
 use node_runtime::constants::currency::*;
@@ -40,6 +42,7 @@ use sp_runtime::{Perbill, traits::{Verify, IdentifyAccount}};
 
 pub use node_primitives::{AccountId, Balance, Signature};
 pub use node_runtime::GenesisConfig;
+use pallet_evm;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -338,6 +341,42 @@ pub fn testnet_genesis(
 			members: vec![],
 			member_count: 3,
 		}),
+		pallet_evm: Some(EvmConfig {
+			accounts: {
+				let mut map = BTreeMap::new();
+				map.insert(
+					// H160 address of Alice dev account
+					// Derived from SS58 (42 prefix) address
+					// SS58: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+					// hex: 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
+					// Using the full hex key, truncating to the first 20 bytes (the first 40 hex chars)
+					H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558")
+						.expect("internal H160 is valid; qed"),
+					pallet_evm::GenesisAccount {
+						balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				map.insert(
+					// H160 address of CI test runner account
+					H160::from_str("6be02d1d3665660d22ff9624b7be0551ee1ac91b")
+						.expect("internal H160 is valid; qed"),
+					pallet_evm::GenesisAccount {
+						balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
+							.expect("internal U256 is valid; qed"),
+						code: Default::default(),
+						nonce: Default::default(),
+						storage: Default::default(),
+					},
+				);
+				map
+			},
+		}),
+		pallet_ethereum: Some(EthereumConfig {}),
+		pallet_dynamic_fee: Some(Default::default()),
 		/* pallet_society: Some(SocietyConfig {
 			members: endowed_accounts.iter()
 						.take((num_endowed_accounts + 1) / 2)

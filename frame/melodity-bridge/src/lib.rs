@@ -319,16 +319,25 @@ pub use module::*;
 impl<T: Config> Pallet<T> {
 	/// compute the current change rate
 	pub fn compute_change_rate() -> Result<(u128, Vec<u8>), DispatchError> {
+		frame_support::debug::RuntimeLogger::init();
+
 		let mut rate: u128 = 0;
 		let mut unit: Vec<u8> = "MELB".as_bytes().to_vec();
 		if AvailableMeld::<T>::get() > 0 {
 			let mut issuance = TryInto::<u128>::try_into(T::Currency::total_issuance())
 				.ok()
-				.unwrap_or(0);
-			if(issuance == 0) {
+				.unwrap_or(1);
+			if issuance == 0 {
 				return Err(Error::<T>::IncompatibleTypes.into());
 			}
-			rate = AvailableMeld::<T>::get().checked_div(issuance).ok_or(Error::<T>::Overflow)?;
+			if issuance == u128::MAX {
+				issuance = 1;
+			}
+			frame_support::debug::debug!("MELB issuance: {:?}", issuance);
+			let truncated_available_meld = AvailableMeld::<T>::get().checked_div(1_000_000).ok_or(Error::<T>::Overflow)?;
+			frame_support::debug::debug!("Truncated available meld: {:?}", truncated_available_meld);
+			rate = truncated_available_meld.checked_div(issuance).ok_or(Error::<T>::Overflow)?;
+			frame_support::debug::debug!("rate: {:?}", rate);
 			
 			// static values
 			let a: u128 = 1_000;
@@ -365,7 +374,7 @@ impl<T: Config> Pallet<T> {
 					k => unit = "decillion MELB".as_bytes().to_vec(),
 					_ => unit = "undicillion MELB".as_bytes().to_vec(),
 				}
-				rate = multiplier.checked_mul(AvailableMeld::<T>::get()).ok_or(Error::<T>::Overflow)?;
+				rate = multiplier.checked_mul(truncated_available_meld).ok_or(Error::<T>::Overflow)?;
 
 				issuance = TryInto::<u128>::try_into(T::Currency::total_issuance())
 					.ok()
@@ -375,8 +384,11 @@ impl<T: Config> Pallet<T> {
 				}
 
 				rate = rate.checked_div(issuance).ok_or(Error::<T>::Overflow)?;
+				frame_support::debug::debug!("rate: {:?}", rate);
 			}
 		}
+
+		rate = rate.checked_mul(1_000_000).ok_or(Error::<T>::Overflow)?;
 		
 		Ok((rate, unit))
 	}
