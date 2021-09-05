@@ -1023,7 +1023,7 @@ parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(10);
 	pub const ProposalBondMinimum: Balance = 1000 * DOLLARS;
 	pub const SpendPeriod: BlockNumber = 1 * DAYS;
-	pub const Burn: Permill = Permill::from_percent(25);
+	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(15);
 	pub const TipReportDepositBase: Balance = 1000 * DOLLARS;
@@ -1293,7 +1293,18 @@ parameter_types! {
 	pub SecondPrize: Percent = Percent::from_parts(25);
 	pub ThirdPrize: Percent = Percent::from_parts(10);
 	pub PlatformFee: Percent = Percent::from_parts(15);
-	pub VoterPrize: Balance = 50 * DOLLARS;
+	pub VoterPrize: Vec<(u128, Balance, Balance)> = vec![
+		(10, 100 * DOLLARS, 10 * DOLLARS),
+		(15, 90 * DOLLARS, 10 * DOLLARS),
+		(20, 80 * DOLLARS, 10 * DOLLARS),
+		(25, 70 * DOLLARS, 10 * DOLLARS),
+		(30, 60 * DOLLARS, 10 * DOLLARS),
+		(35, 50 * DOLLARS, 10 * DOLLARS),
+		(40, 40 * DOLLARS, 10 * DOLLARS),
+		(45, 30 * DOLLARS, 10 * DOLLARS),
+		(u128::MAX, 20 * DOLLARS, 10 * DOLLARS),
+	];
+	pub PrizeLimiter: Balance = 1000 * DOLLARS;
 }
 
 impl melodity_track_election::Config for Runtime {
@@ -1349,7 +1360,19 @@ impl melodity_track_election::Config for Runtime {
 	type Nft = Nft;
 
 	/// The prize given to the listener for the vote of a track
+	/// The vector contains one or more tuples responsible for the prize handling
+	/// Each tuple is constituted as follows:
+	/// (
+	/// 	number_of_tracks_participating_in_election,
+	///		prize_given_to_artist_participanting_in_election,
+	///		prize_given_to_listener_non_participating_in_election
+	/// )
 	type VoterPrize = VoterPrize;
+
+	/// The maximum prize a user can receive, this value is used to compute the
+	/// prize as follows:
+	///		max_prize = (number_of_tracks_participating_in_election + 1) * prize_limiter
+	type PrizeLimiter = PrizeLimiter;
 }
 
 parameter_types! {

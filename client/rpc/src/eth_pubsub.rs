@@ -24,7 +24,7 @@ use sc_client_api::{
 	backend::{Backend, StateBackend, StorageProvider},
 	client::BlockchainEvents,
 };
-use sc_rpc::Metadata;
+use sc_rpc_api::metadata::Metadata;
 use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, UniqueSaturatedInto};

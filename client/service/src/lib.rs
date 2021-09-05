@@ -182,6 +182,28 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub other: Other,
 }
 
+/// An incomplete set of chain components, but enough to run the chain ops subcommands.
+pub struct ModifiedPartialComponents<Client, Backend, SelectChain, /* ImportQueue, */ TransactionPool, Other> {
+	/// A shared client instance.
+	pub client: Arc<Client>,
+	/// A shared backend instance.
+	pub backend: Arc<Backend>,
+	/// The chain task manager.
+	pub task_manager: TaskManager,
+	/// A keystore container instance..
+	pub keystore_container: KeystoreContainer,
+	/// A chain selection algorithm instance.
+	pub select_chain: SelectChain,
+	// An import queue.
+	// pub import_queue: ImportQueue,
+	/// A shared transaction pool.
+	pub transaction_pool: Arc<TransactionPool>,
+	/// A registry of all providers of `InherentData`.
+	pub inherent_data_providers: sp_inherents::InherentDataProviders,
+	/// Everything else that needs to be passed into the main build function.
+	pub other: Other,
+}
+
 /// Builds a never-ending future that continuously polls the network.
 ///
 /// The `status_sink` contain a list of senders to send a periodic network status to.
@@ -467,7 +489,7 @@ fn start_rpc_servers<
 /// the HTTP or WebSockets server).
 #[derive(Clone)]
 pub struct RpcSession {
-	metadata: sc_rpc::Metadata,
+	metadata: sc_rpc_api::metadata::Metadata,
 }
 
 impl RpcSession {
@@ -479,7 +501,7 @@ impl RpcSession {
 	/// The `RpcSession` must be kept alive in order to receive messages on the sender.
 	pub fn new(sender: futures01::sync::mpsc::Sender<String>) -> RpcSession {
 		RpcSession {
-			metadata: sender.into(),
+			metadata: sc_rpc_api::metadata::Metadata::new(sender),//.into(),
 		}
 	}
 }

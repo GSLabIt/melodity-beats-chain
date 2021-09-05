@@ -105,12 +105,13 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, Twox64Concat, ValueQuery},
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Zero, StaticLookup};
-use sp_runtime::{Percent};
+use sp_runtime::traits::{AtLeast128BitUnsigned, MaybeSerializeDeserialize, Zero, StaticLookup};
+use sp_runtime::{Percent, DispatchResult};
 use sp_std::prelude::*;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use melodity_nft::NftExistance;
+use sp_runtime::traits::CheckedAdd;
 
 type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type PoolT<T> = Vec<((<T as frame_system::Config>::AccountId, u128), u128)>;
@@ -136,7 +137,7 @@ pub trait Config: frame_system::Config {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
 	/// The balance type of the the pool
-	type Balance: Parameter + Member + AtLeast32BitUnsigned + Codec + Default + Copy +
+	type Balance: Parameter + Member + AtLeast128BitUnsigned + Codec + Default + Copy +
 		MaybeSerializeDeserialize + Debug;
 
 	// The deposit which is reserved from candidates if they want to
@@ -182,7 +183,19 @@ pub trait Config: frame_system::Config {
 	type Nft: NftExistance<u128, u128, Self::AccountId>;
 
 	/// The prize given to the listener for the vote of a track
-	type VoterPrize: Get<BalanceOf<Self>>;
+	/// The vector contains one or more tuples responsible for the prize handling
+	/// Each tuple is constituted as follows:
+	/// (
+	/// 	number_of_tracks_participating_in_election,
+	///		prize_given_to_artist_participanting_in_election,
+	///		prize_given_to_listener_non_participating_in_election
+	/// )
+	type VoterPrize: Get<Vec<(u128, u128, u128)>>;
+
+	/// The maximum prize a user can receive, this value is used to compute the
+	/// prize as follows:
+	///		max_prize = (number_of_tracks_participating_in_election + 1) * prize_limiter
+	type PrizeLimiter: Get<u128>;
 }
 
 decl_storage! {
@@ -199,6 +212,8 @@ decl_storage! {
 		CandidateExists get(fn candidate_exists): 
 			double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) u128 => bool;
 
+		CandidateNumber get(fn candidate_number): u128;
+
 		/// The current membership, stored as an ordered Vec.
 		Members get(fn members): Vec<T::AccountId>;
 
@@ -212,6 +227,11 @@ decl_storage! {
 		/// [voter, nft_owner, nft_id] => true
 		CanVoteCandidate get(fn can_vote_candidate): 
 			double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (T::AccountId, u128) => bool;
+		
+		/// Store the address of the user receiving the prize and the total prize already
+		/// received
+		GivenPrizes get(fn given_prizes): 
+			map hasher(twox_64_concat) T::AccountId => u128;
 	}
 	add_extra_genesis {
 		config(members): Vec<T::AccountId>;
@@ -273,7 +293,9 @@ decl_error! {
 		/// Invalid score provided, it should be a number between 0 and 10 included
 		ScoreNotValid,
 		/// You cannot vote your own tracks
-		UnableToVoteYourself
+		UnableToVoteYourself,
+		/// The maximum reachable prize overflows its limit
+		MaximumReachablePrizeTooHigh,
 	}
 }
 
@@ -321,10 +343,13 @@ decl_module! {
 						// empty the pool
 						<CandidateExists<T>>::remove_all();
 						<CanVoteCandidate<T>>::remove_all();
+						<GivenPrizes<T>>::remove_all();
+						CandidateNumber::put(0);
 						pool.clear();
 						<Pool<T>>::put(pool);
 						pool_balance = BalanceOf::<T>::zero();
 						<PoolBalance<T>>::put(pool_balance);
+
 						return 500_000_000;
 					},
 					// two participants, use the standard prize division
@@ -365,6 +390,8 @@ decl_module! {
 				// empty the pool
 				<CandidateExists<T>>::remove_all();
 				<CanVoteCandidate<T>>::remove_all();
+				<GivenPrizes<T>>::remove_all();
+				CandidateNumber::put(0);
 				pool.clear();
 				<Pool<T>>::put(pool);
 				<PoolBalance<T>>::put(pool_balance);
@@ -386,6 +413,7 @@ decl_module! {
 			let who = ensure_signed(origin)?;
 			ensure!(!<CandidateExists<T>>::contains_key(&who, &nft_id), Error::<T>::AlreadyInPool);
 			// check nft existance
+			// MELT class id: 0
 			ensure!(T::Nft::exists(0u128, nft_id), Error::<T>::MissingNft);
 			// check nft ownance
 			ensure!(T::Nft::owns(who.clone(), 0u128, nft_id), Error::<T>::NotOwnedNFT);
@@ -396,13 +424,17 @@ decl_module! {
 			// pay the deposit
 			T::Currency::withdraw(&who, deposit, WithdrawReasons::TRANSACTION_PAYMENT, ExistenceRequirement::KeepAlive)?;
 			// add candidacy to pool prize
-			<PoolBalance<T>>::put(<PoolBalance<T>>::get() + deposit);
+			let prize = <PoolBalance<T>>::get().checked_add(&deposit).ok_or(Error::<T>::MaxPoolPrizeReached)?;
+			<PoolBalance<T>>::put(prize);
 
 			// can be inserted as last element in pool, since entities with
 			// `None` are always sorted to the end.
 			<Pool<T>>::append(((who.clone(), nft_id.clone()), 0u128));
 
 			<CandidateExists<T>>::insert(&who, &nft_id, true);
+
+			// no checks are performed here as the number should already be locked by the max pool prize
+			CandidateNumber::put(CandidateNumber::get() + 1);
 
 			Self::deposit_event(RawEvent::CandidateAdded);
 		}
@@ -425,12 +457,18 @@ decl_module! {
 
 			let pool = <Pool<T>>::get();
 
+			// reduce the candidates number
+			let candidates = CandidateNumber::get();
+			if candidates > 0 {
+				CandidateNumber::put(candidates - 1);
+			}
+
 			Self::remove_member(pool, who, nft_id)?;
 			Self::deposit_event(RawEvent::CandidateKicked);
 		}
 
 		/// Grant the provided user the right to vote the pair of (nft_owner, nft_id)
-		#[weight = 10_000]
+		#[weight = 0]
 		pub fn grant_vote_right(
 			origin,
 			dest: <T::Lookup as StaticLookup>::Source,
@@ -468,14 +506,13 @@ decl_module! {
 		}
 
 		/// Score a member `who` with `score`.
-		/// TODO: create an enable call to enable the possibility to score a track
 		/// May only be called from `T::ScoreOrigin`.
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of the `dest` in the `Pool`.
 		/// 
 		/// zero weight as it should be callable by anyone even without any balance
-		#[weight = 0]
+		#[weight = 1_000_000_000]
 		pub fn score(
 			origin,
 			dest: <T::Lookup as StaticLookup>::Source,
@@ -501,11 +538,26 @@ decl_module! {
 			// check that the vote is within the valid range
 			ensure!(score >= 0u128 && score <= 10u128, Error::<T>::ScoreNotValid);
 
+			let weighted_vote = match score {
+				0 => 0b0u128,					// 0
+				1 => 0b1u128,					// 1
+				2 => 0b10u128,					// 2
+				3 => 0b100u128,					// 4
+				4 => 0b1000u128,				// 8
+				5 => 0b10000u128,				// 16
+				6 => 0b100000u128,				// 32
+				7 => 0b1000000u128,				// 64
+				8 => 0b10000000u128,			// 128
+				9 => 0b100000000u128,			// 256
+				10 => 0b1000000000u128,			// 512
+				_ => 0b0u128
+			};
+
 			let mut pool = <Pool<T>>::get();
 			let index = Self::index_of(&pool, who.clone(), nft_id.clone())?;
 			//Self::ensure_index(&pool, &who, index)?;
 
-			let new_score = score.checked_add(pool[index].1).ok_or(Error::<T>::MaxScoreReached)?;
+			let new_score = weighted_vote.checked_add(pool[index].1).ok_or(Error::<T>::MaxScoreReached)?;
 
 			// update the map marking it as already voted
 			<CanVoteCandidate<T>>::mutate(
@@ -532,8 +584,63 @@ decl_module! {
 
 			<Pool<T>>::put(&pool);
 
-			// finally send the pool prize
-			T::Currency::deposit_creating(&sender, T::VoterPrize::get());
+			// Compute the vote prize!
+			let candidates = CandidateNumber::get();
+			let tracks_in_election: u128 = (<CandidateExists<T>>::iter_prefix_values(sender.clone()).count() + 1) as u128;
+			let maximum_prize = tracks_in_election.checked_mul(T::PrizeLimiter::get()).ok_or(Error::<T>::MaximumReachablePrizeTooHigh)?;
+			let already_given_prize: u128 = if GivenPrizes::<T>::contains_key(sender.clone()) {
+				<GivenPrizes<T>>::get(sender.clone())
+			}
+			else {
+				0
+			};
+			let prize_tiers = T::VoterPrize::get();
+
+			// if prize can still be given give the prize, otherwise no prize is given to the listener
+			// no error occur as this is an allowed behaviour
+			if already_given_prize < maximum_prize.into() {
+				let mut prize_tier_index = 0;
+				let mut next_prize_tier_index = prize_tier_index;
+
+
+				while prize_tier_index < prize_tiers.len() -1 {
+					next_prize_tier_index += 1;
+
+					if candidates > prize_tiers[prize_tier_index].0 {
+						prize_tier_index += 1;
+						continue;
+					}
+					else if candidates < prize_tiers[prize_tier_index].0 {
+						break;
+					}
+					else if next_prize_tier_index == prize_tiers.len() {
+						// set the index to the last position of the prize_tiers vector
+						prize_tier_index = prize_tiers.len() -1;
+					}
+				}
+
+				let ending_prize = if tracks_in_election > 1 {
+					prize_tiers[prize_tier_index].1
+				} 
+				else {
+					prize_tiers[prize_tier_index].2
+				};
+
+				// the computed value should always leave in a safe range as an enormous amount of
+				// funds is needed in order to let this cause an error
+				if !GivenPrizes::<T>::contains_key(&sender) {
+					GivenPrizes::<T>::insert(sender.clone(), ending_prize + already_given_prize)
+				}
+				else {
+					GivenPrizes::<T>::try_mutate(sender.clone(), |value| -> DispatchResult {
+						*value = ending_prize + already_given_prize;
+						Ok(())
+					});
+				}
+
+				// finally send the pool prize
+				T::Currency::deposit_creating(&sender, ending_prize.into());
+			}
 
 			Self::deposit_event(RawEvent::CandidateScored(who, nft_id));
 		}
