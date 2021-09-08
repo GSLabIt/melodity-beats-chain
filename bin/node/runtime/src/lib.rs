@@ -229,27 +229,26 @@ type Ensure3OutOf4Council = pallet_collective::EnsureProportionMoreThan<_3, _4, 
 type Ensure2OutOf3Council = pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilCollective>;
 type EnsureFullCouncil = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
 
-pub struct TakePlatformFeeRewardAuthor;
-impl OnUnbalanced<NegativeImbalance> for TakePlatformFeeRewardAuthor {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		let (imb1, imb2) = amount.ration(90, 10);
-		Author::on_unbalanced(imb1);
-		Balances::resolve_creating(&PlatformPot::get(), imb2);
-	}
-}
-
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item=NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 25% to treasury, 75% to split with platform and owner
-			let mut split = fees.ration(25, 75);
+			// for fees, 25% to treasury, 25% burn, 50% to split with platform and author
+			let mut split = fees.ration(50, 50);
 			if let Some(tips) = fees_then_tips.next() {
-				// for tips, if any, 25% to treasury, 75% to author (though this can be anything)
-				tips.ration_merge_into(25, 75, &mut split);
+				// for tips, if any, 25% to treasury, 25% burn, 50% to split with platform and author
+				tips.ration_merge_into(50, 50, &mut split);
 			}
-			Treasury::on_unbalanced(split.0);
-			TakePlatformFeeRewardAuthor::on_unbalanced(split.1);
+
+			// initial 50% is split in 25% and 25%
+			let first_split = split.0.ration(50, 50);
+			Treasury::on_unbalanced(first_split.0);
+			Balances::burn(first_split.1.peek());
+
+			// initial 50% is split in 10% and 40%
+			let second_split = split.1.ration(20, 80);
+			Balances::resolve_creating(&PlatformPot::get(), second_split.0);
+			Author::on_unbalanced(second_split.1);
 		}
 	}
 }
