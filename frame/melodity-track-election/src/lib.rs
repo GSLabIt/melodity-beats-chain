@@ -380,10 +380,20 @@ decl_module! {
 						remaining_funds -= (first_prize + second_prize + third_prize);
 					}
 				}
+
+				// split the platform fee in 80% - 20%, the 20% will be destroied (implicitly burned)
+				// while the other part will be taken as platform fee
+				let deflate_platform_fee = platform_fee * 8u128.into() / 10u128.into();
+
 				// deposit the platform fee to the platform pot account
-				T::Currency::deposit_creating(&T::PlatformPot::get(), platform_fee);
+				T::Currency::deposit_creating(&T::PlatformPot::get(), deflate_platform_fee);
+
+				// split in half the 10% remaining, only 5% will be transferred to the treasury,
+				// the remaining 5% will be destroied
+				let deflate_remaining_funds = remaining_funds / 2u128.into();
+
 				// store the remaining prize
-				T::RewardRemainder::on_unbalanced(T::Currency::issue(remaining_funds));
+				T::RewardRemainder::on_unbalanced(T::Currency::issue(deflate_remaining_funds));
 
 				// finally reset the pool balance
 				pool_balance = BalanceOf::<T>::zero();
@@ -419,12 +429,16 @@ decl_module! {
 			ensure!(T::Nft::owns(who.clone(), 0u128, nft_id), Error::<T>::NotOwnedNFT);
 
 			let deposit = T::CandidateDeposit::get();
+			// deflate the amount of funds actually stored in the prize, 90% is stored in the prize,
+			// 10% is immediately destroied
+			let deflated_deposit = deposit * 9u128.into() / 10u128.into();
+
 			// check the origin can pay for the deposit
 			//T::Currency::ensure_can_withdraw(&who, deposit, WithdrawReasons::TRANSACTION_PAYMENT)?;
 			// pay the deposit
 			T::Currency::withdraw(&who, deposit, WithdrawReasons::TRANSACTION_PAYMENT, ExistenceRequirement::KeepAlive)?;
 			// add candidacy to pool prize
-			let prize = <PoolBalance<T>>::get().checked_add(&deposit).ok_or(Error::<T>::MaxPoolPrizeReached)?;
+			let prize = <PoolBalance<T>>::get().checked_add(&deflated_deposit).ok_or(Error::<T>::MaxPoolPrizeReached)?;
 			<PoolBalance<T>>::put(prize);
 
 			// can be inserted as last element in pool, since entities with

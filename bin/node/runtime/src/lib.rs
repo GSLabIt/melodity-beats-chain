@@ -321,7 +321,7 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-/* parameter_types! {
+parameter_types! {
 	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
@@ -332,14 +332,29 @@ impl pallet_utility::Config for Runtime {
 impl pallet_multisig::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
+
+	/// The currency mechanism.
 	type Currency = Balances;
+
+	/// The base amount of currency needed to reserve for creating a multisig execution or to store
+	/// a dispatch call for later.
+	///
+	/// This is held for an additional storage item whose value size is
+	/// `4 + sizeof((BlockNumber, Balance, AccountId))` bytes and whose key size is
+	/// `32 + sizeof(AccountId)` bytes.
 	type DepositBase = DepositBase;
+
+	/// The amount of currency needed per unit threshold when creating a multisig execution.
+	///
+	/// This is held for adding 32 bytes more into a pre-existing storage value.
 	type DepositFactor = DepositFactor;
+
+	/// The maximum amount of signatories allowed in the multisig.
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
-} */
+}
 
-/* parameter_types! {
+parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 33 bytes.
@@ -366,16 +381,16 @@ impl InstanceFilter<Call> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				Call::Balances(..) |
-				Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
+				// Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
 				Call::Indices(pallet_indices::Call::transfer(..))
 			),
 			ProxyType::Governance => matches!(
 				c,
 				Call::Democracy(..) |
 				Call::Council(..) |
-				Call::Society(..) |
+				// Call::Society(..) |
 				Call::TechnicalCommittee(..) |
-				Call::Elections(..) |
+				// Call::Elections(..) |
 				Call::Treasury(..)
 			),
 			ProxyType::Staking => matches!(c, Call::Staking(..)),
@@ -405,7 +420,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
-} */
+}
 
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
@@ -1724,8 +1739,8 @@ construct_runtime!(
 		// Recovery: pallet_recovery::{Module, Call, Storage, Event<T>},
 		// Vesting: pallet_vesting::{Module, Call, Storage, Event<T>, Config<T>},
 		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-		// Proxy: pallet_proxy::{Module, Call, Storage, Event<T>},
-		// Multisig: pallet_multisig::{Module, Call, Storage, Event<T>},
+		Proxy: pallet_proxy::{Module, Call, Storage, Event<T>},
+		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>},
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
 		// Tips: pallet_tips::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
