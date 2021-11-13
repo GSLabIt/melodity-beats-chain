@@ -23,11 +23,11 @@ use sc_chain_spec::ChainSpecExtension;
 use sp_core::{Pair, Public, crypto::UncheckedInto, sr25519, H160, U256};
 use serde::{Serialize, Deserialize};
 use node_runtime::{
-	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, /* ContractsConfig, */ CouncilConfig,
+	AuthorityDiscoveryConfig, BabeConfig, BalancesConfig, ContractsConfig, CouncilConfig,
 	DemocracyConfig, GrandpaConfig, ImOnlineConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, /* ElectionsConfig, */ IndicesConfig, /* SocietyConfig, */ SudoConfig, SystemConfig,
 	TechnicalCommitteeConfig, wasm_binary_unwrap, NftConfig, TrackElectionConfig, BridgeConfig,
-	EvmConfig, EthereumConfig,
+	/* EvmConfig, EthereumConfig, */
 };
 use node_runtime::Block;
 use node_runtime::constants::currency::*;
@@ -302,12 +302,12 @@ pub fn testnet_genesis(
 						.collect(),
 			phantom: Default::default(),
 		}),
-		/* pallet_contracts: Some(ContractsConfig {
+		pallet_contracts: Some(ContractsConfig {
 			current_schedule: pallet_contracts::Schedule {
 				enable_println, // this should only be enabled on development chains
 				..Default::default()
 			},
-		}), */
+		}),
 		melodity_nft: Some(NftConfig {
 			tokens: vec![
 				(
@@ -341,7 +341,7 @@ pub fn testnet_genesis(
 			members: vec![],
 			member_count: 3,
 		}),
-		pallet_evm: Some(EvmConfig {
+		/* pallet_evm: Some(EvmConfig {
 			accounts: {
 				let mut map = BTreeMap::new();
 				map.insert(
@@ -376,7 +376,7 @@ pub fn testnet_genesis(
 			},
 		}),
 		pallet_ethereum: Some(EthereumConfig {}),
-		pallet_dynamic_fee: Some(Default::default()),
+		pallet_dynamic_fee: Some(Default::default()), */
 		/* pallet_society: Some(SocietyConfig {
 			members: endowed_accounts.iter()
 						.take((num_endowed_accounts + 1) / 2)

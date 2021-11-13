@@ -312,8 +312,8 @@ pub fn edited_new_partial(config: &Configuration) -> Result<sc_service::Modified
 				is_authority,
 				network: network.clone(),
 				backend: frontier_backend.clone(),
-				pending_transactions: pending_transactions.clone(),
-				filter_pool: filter_pool.clone(),
+				// pending_transactions: pending_transactions.clone(),
+				// filter_pool: filter_pool.clone(),
 				max_past_logs
 			};
 

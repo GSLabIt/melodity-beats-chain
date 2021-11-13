@@ -22,8 +22,8 @@ use crate::keyring::*;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use node_runtime::{
 	GenesisConfig, BalancesConfig, SessionConfig, StakingConfig, SystemConfig,
-	GrandpaConfig, IndicesConfig, /* ContractsConfig, */ /* SocietyConfig, */ wasm_binary_unwrap,
-	AccountId, StakerStatus, NftConfig, EvmConfig, EthereumConfig,
+	GrandpaConfig, IndicesConfig, ContractsConfig, /* SocietyConfig, */ wasm_binary_unwrap,
+	AccountId, StakerStatus, NftConfig, /* EvmConfig, EthereumConfig, */
 };
 use node_runtime::constants::currency::*;
 use sp_core::{ChangesTrieConfiguration, H160, U256};
@@ -57,7 +57,7 @@ pub fn config_endowed(
 	);
 
 	GenesisConfig {
-		pallet_evm: Some(EvmConfig {
+		/* pallet_evm: Some(EvmConfig {
 			accounts: {
 				let mut map = BTreeMap::new();
 				map.insert(
@@ -92,7 +92,7 @@ pub fn config_endowed(
 			},
 		}),
 		pallet_ethereum: Some(EthereumConfig {}),
-		pallet_dynamic_fee: Some(Default::default()),
+		pallet_dynamic_fee: Some(Default::default()), */
 		melodity_bridge: Some(Default::default()),
 		frame_system: Some(SystemConfig {
 			changes_trie_config: if support_changes_trie { Some(ChangesTrieConfiguration {
@@ -136,9 +136,9 @@ pub fn config_endowed(
 			invulnerables: vec![alice(), bob(), charlie()],
 			.. Default::default()
 		}),
-		/* pallet_contracts: Some(ContractsConfig {
+		pallet_contracts: Some(ContractsConfig {
 			current_schedule: Default::default(),
-		}), */
+		}),
 		melodity_nft: Some(Default::default()),
 		pallet_babe: Some(Default::default()),
 		pallet_grandpa: Some(GrandpaConfig {

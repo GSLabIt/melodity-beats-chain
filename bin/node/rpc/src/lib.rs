@@ -120,9 +120,9 @@ pub struct FullDeps<C, P, SC, B> {
 	/// Backend.
 	pub backend: Arc<fc_db::Backend<Block>>,
 	/// Ethereum pending transactions.
-	pub pending_transactions: PendingTransactions,
+	// pub pending_transactions: PendingTransactions,
 	/// EthFilterApi pool.
-	pub filter_pool: Option<FilterPool>,
+	// pub filter_pool: Option<FilterPool>,
 	/// Maximum number of logs in a query.
 	pub max_past_logs: u32,
 }
@@ -137,11 +137,11 @@ pub fn create_full<C, P, SC, B>(
 	C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore +
 		HeaderMetadata<Block, Error=BlockChainError> + Sync + Send + 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-	// C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+	// C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
 	C: ProvideRuntimeApi<Block> + StorageProvider<Block, B> + AuxStore,
 	C: BlockchainEvents<Block>,
 	C: Send + Sync + 'static,
@@ -153,8 +153,8 @@ pub fn create_full<C, P, SC, B>(
 	P: TransactionPool<Block = Block> + 'static,
 {
 	use sc_rpc::{
-		EthApi, EthApiServer, EthDevSigner, EthFilterApi, EthFilterApiServer, EthPubSubApi,
-		EthPubSubApiServer, EthSigner, HexEncodedIdProvider, NetApi, NetApiServer, Web3Api,
+		/* EthApi, EthApiServer, EthDevSigner, EthFilterApi, EthFilterApiServer, EthPubSubApi,
+		EthPubSubApiServer, EthSigner, */ HexEncodedIdProvider, NetApi, NetApiServer, Web3Api,
 		Web3ApiServer,
 	};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -173,8 +173,8 @@ pub fn create_full<C, P, SC, B>(
 		is_authority,
 		network,
 		backend,
-		pending_transactions,
-		filter_pool,
+		// pending_transactions,
+		// filter_pool,
 		max_past_logs,
 	} = deps;
 
@@ -191,13 +191,13 @@ pub fn create_full<C, P, SC, B>(
 		finality_provider,
 	} = grandpa;
 
-	let mut signers = Vec::new();
+	/* let mut signers = Vec::new();
 	let mut overrides_map = BTreeMap::new();
 	overrides_map.insert(
 		EthereumStorageSchema::V1,
 		Box::new(SchemaV1Override::new(client.clone()))
 			as Box<dyn StorageOverride<_> + Send + Sync>,
-	);
+	); 
 
 	let overrides = Arc::new(OverrideHandle {
 		schemas: overrides_map,
@@ -226,7 +226,7 @@ pub fn create_full<C, P, SC, B>(
 			overrides.clone(),
 			max_past_logs,
 		)));
-	}
+	} 
 
 	io.extend_with(NetApiServer::to_delegate(NetApi::new(
 		client.clone(),
@@ -246,7 +246,7 @@ pub fn create_full<C, P, SC, B>(
 			Arc::new(subscription_executor.clone()),
 		),
 		overrides,
-	)));
+	))); */
 
 	io.extend_with(
 		SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe))

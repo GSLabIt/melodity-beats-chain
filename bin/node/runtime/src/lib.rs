@@ -144,8 +144,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 105,
-	impl_version: 1,
+	spec_version: 106,
+	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 };
@@ -245,8 +245,8 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 			Treasury::on_unbalanced(first_split.0);
 			Balances::burn(first_split.1.peek());
 
-			// initial 50% is split in 10% and 40%
-			let second_split = split.1.ration(20, 80);
+			// initial 50% is split in 1% and 49%
+			let second_split = split.1.ration(2, 98);
 			Balances::resolve_creating(&PlatformPot::get(), second_split.0);
 			Author::on_unbalanced(second_split.1);
 		}
@@ -1140,7 +1140,7 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 } */
 
-/* parameter_types! {
+parameter_types! {
 	pub const TombstoneDeposit: Balance = deposit(
 		1,
 		sp_std::mem::size_of::<pallet_contracts::ContractInfo<Runtime>>() as u32
@@ -1165,26 +1165,85 @@ impl pallet_bounties::Config for Runtime {
 }
 
 impl pallet_contracts::Config for Runtime {
+	/// The time implementation used to supply timestamps to conntracts through `seal_now`.
 	type Time = Timestamp;
+
+	/// The generator used to supply randomness to contracts through `seal_random`.
 	type Randomness = RandomnessCollectiveFlip;
+
+	/// The currency in which fees are paid and contract balances are held.
 	type Currency = Balances;
 	type Event = Event;
+
+	/// Handler for rent payments.
 	type RentPayment = ();
+
+	/// Number of block delay an extrinsic claim surcharge has.
+	///
+	/// When claim surcharge is called by an extrinsic the rent is checked
+	/// for current_block - delay
 	type SignedClaimHandicap = SignedClaimHandicap;
+
+	/// The minimum amount required to generate a tombstone.
 	type TombstoneDeposit = TombstoneDeposit;
+
+	/// The balance every contract needs to deposit to stay alive indefinitely.
+	///
+	/// This is different from the [`Self::TombstoneDeposit`] because this only needs to be
+	/// deposited while the contract is alive. Costs for additional storage are added to
+	/// this base cost.
+	///
+	/// This is a simple way to ensure that contracts with empty storage eventually get deleted by
+	/// making them pay rent. This creates an incentive to remove them early in order to save rent.
 	type DepositPerContract = DepositPerContract;
+
+	/// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
+	///
+	/// Let's suppose the deposit is 1,000 BU (balance units)/byte and the rent is 1 BU/byte/day,
+	/// then a contract with 1,000,000 BU that uses 1,000 bytes of storage would pay no rent.
+	/// But if the balance reduced to 500,000 BU and the storage stayed the same at 1,000,
+	/// then it would pay 500 BU/day.
 	type DepositPerStorageByte = DepositPerStorageByte;
+
+	/// The balance a contract needs to deposit per storage item to stay alive indefinitely.
+	///
+	/// It works the same as [`Self::DepositPerStorageByte`] but for storage items.
 	type DepositPerStorageItem = DepositPerStorageItem;
+
+	/// The fraction of the deposit that should be used as rent per block.
+	///
+	/// When a contract hasn't enough balance deposited to stay alive indefinitely it needs
+	/// to pay per block for the storage it consumes that is not covered by the deposit.
+	/// This determines how high this rent payment is per block as a fraction of the deposit.
 	type RentFraction = RentFraction;
+
+	/// Reward that is received by the party whose touch has led
+	/// to removal of a contract.
 	type SurchargeReward = SurchargeReward;
+
+	/// The maximum nesting level of a call/instantiate stack
 	type MaxDepth = MaxDepth;
+
+	/// The maximum size of a storage value and event payload in bytes.
 	type MaxValueSize = MaxValueSize;
+
+	/// Used to answer contracts's queries regarding the current weight price. This is **not**
+	/// used to calculate the actual fee and is only for informational purposes.
 	type WeightPrice = pallet_transaction_payment::Module<Self>;
+
+	/// Describes the weights of the dispatchables of this module and is also used to
+	/// construct a default cost schedule.
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
+
+	/// Type that allows the runtime authors to add new host functions for a contract to call.
 	type ChainExtension = ();
+
+	/// The maximum number of tries that can be queued for deletion.
 	type DeletionQueueDepth = DeletionQueueDepth;
+
+	/// The maximum amount of weight that can be consumed per block for lazy trie removal.
 	type DeletionWeightLimit = DeletionWeightLimit;
-} */
+}
 
 impl pallet_sudo::Config for Runtime {
 	type Event = Event;
@@ -1628,7 +1687,7 @@ impl melodity_airdrop::Config for Runtime {
 	type Currency = Balances;
 }
 
-parameter_types! {
+/* parameter_types! {
 	pub const ChainId: u64 = 57;
 	pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
@@ -1701,7 +1760,7 @@ frame_support::parameter_types! {
 impl pallet_dynamic_fee::Config for Runtime {
 	/// Bound divisor for min gas price.
 	type MinGasPriceBoundDivisor = BoundDivision;
-}
+} */
 
 construct_runtime!(
 	pub enum Runtime where
@@ -1727,7 +1786,7 @@ construct_runtime!(
 		TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned},
 		Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
-		// Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
+		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
 		AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
@@ -1753,23 +1812,23 @@ construct_runtime!(
 		Airdrop: melodity_airdrop::{Module, Call, Storage, Event<T>},
 
 		// frontier
-		Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
-		Evm: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-		DynamicFee: pallet_dynamic_fee::{Module, Call, Storage, Config, Inherent},
+		// Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
+		// Evm: pallet_evm::{Module, Config, Call, Storage, Event<T>},
+		// DynamicFee: pallet_dynamic_fee::{Module, Call, Storage, Config, Inherent},
 	}
 );
 
 pub struct TransactionConverter;
 
-impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
+/* impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
 	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_unsigned(
 			pallet_ethereum::Call::<Runtime>::transact(transaction).into(),
 		)
 	}
-}
+} */
 
-impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConverter {
+/* impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConverter {
 	fn convert_transaction(
 		&self,
 		transaction: pallet_ethereum::Transaction,
@@ -1781,7 +1840,7 @@ impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConve
 		opaque::UncheckedExtrinsic::decode(&mut &encoded[..])
 			.expect("Encoded extrinsic is always valid")
 	}
-}
+} */
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
@@ -1985,7 +2044,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	/* impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+	impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
 		for Runtime
 	{
 		fn call(
@@ -2010,9 +2069,9 @@ impl_runtime_apis! {
 		) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
 			Contracts::rent_projection(address)
 		}
-	} */
+	}
 
-	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+	/* impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()
 		}
@@ -2129,7 +2188,7 @@ impl_runtime_apis! {
 				_ => None
 			}).collect::<Vec<EthereumTransaction>>()
 		}
-	}
+	} */
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
 		Block,
