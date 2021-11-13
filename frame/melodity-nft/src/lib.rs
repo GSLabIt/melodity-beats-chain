@@ -340,7 +340,7 @@ pub mod module {
 					NextTokenId::<T>::try_mutate(class_id, |id| -> DispatchResult {	
 						let token_id = *id;
 						*id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailableTokenId)?;
-		
+
 						Classes::<T>::try_mutate(class_id, |class_info| -> DispatchResult {
 							let info = class_info.as_mut().ok_or(Error::<T>::ClassNotFound)?;
 							info.total_issuance = info
