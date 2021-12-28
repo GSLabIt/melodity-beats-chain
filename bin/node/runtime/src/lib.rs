@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 106,
+	spec_version: 107,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -162,10 +162,10 @@ pub fn native_version() -> NativeVersion {
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
  
 parameter_types! {
-	/// Do Labs - Company address (root address)
-	pub PlatformPot: AccountId = hex!["d6da31d2a7e66f26026263d66a4ca583f80f430197c25d00bc85f796813cca2b"].into();
+	/// Do inc. - Company address (root address)
+	pub PlatformPot: AccountId = hex!["f64027cb865e047c220c302a1996c164f0992664e3d2d6335e5fe5e70076e965"].into();
 	/// Derivation path: //airdrop//controller		[from company address]
-	pub AirdropController: AccountId = hex!["0eceafe1c6ec459f38b55411f3974ac7c16fbed0e57d4c1189db6fb0cd23905e"].into();
+	pub AirdropController: AccountId = hex!["1855233d1e49f8cf3d1929a10b457a81d87ccd7286db4560712e49d38bd5e017"].into();
 	pub AirdropControllerVec: Vec<AccountId> = vec![AirdropController::get()];
 	pub PlatformPotVec: Vec<AccountId> = vec![PlatformPot::get()];
 }

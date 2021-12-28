@@ -319,8 +319,6 @@ pub use module::*;
 impl<T: Config> Pallet<T> {
 	/// compute the current change rate
 	pub fn compute_change_rate() -> Result<(u128, Vec<u8>), DispatchError> {
-		frame_support::debug::RuntimeLogger::init();
-
 		let mut rate: u128 = 0;
 		let mut unit: Vec<u8> = "MELB".as_bytes().to_vec();
 		if AvailableMeld::<T>::get() > 0 {
@@ -333,11 +331,8 @@ impl<T: Config> Pallet<T> {
 			if issuance == u128::MAX {
 				issuance = 1;
 			}
-			frame_support::debug::debug!("MELB issuance: {:?}", issuance);
 			let truncated_available_meld = AvailableMeld::<T>::get().checked_div(1_000_000).ok_or(Error::<T>::Overflow)?;
-			frame_support::debug::debug!("Truncated available meld: {:?}", truncated_available_meld);
 			rate = truncated_available_meld.checked_div(issuance).ok_or(Error::<T>::Overflow)?;
-			frame_support::debug::debug!("rate: {:?}", rate);
 			
 			// static values
 			let a: u128 = 1_000;

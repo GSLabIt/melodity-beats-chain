@@ -482,7 +482,7 @@ decl_module! {
 		}
 
 		/// Grant the provided user the right to vote the pair of (nft_owner, nft_id)
-		#[weight = 0]
+		#[weight = (1_000_000, DispatchClass::Normal, Pays::No)]
 		pub fn grant_vote_right(
 			origin,
 			dest: <T::Lookup as StaticLookup>::Source,

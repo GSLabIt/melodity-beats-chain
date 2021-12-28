@@ -73,7 +73,7 @@ DEFINITION:
           ],
           [
             "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",
-            10000000000000000000
+            10_000_000__000_000_000_000
           ],
           [
             "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
@@ -112,7 +112,7 @@ DEFINITION:
           [
             "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",							// stash address A
             "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",							// controller address A
-            10_000_000000000000,
+            10_000__000_000_000_000,
             "Validator"
           ],
           [
