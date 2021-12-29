@@ -2,10 +2,10 @@
 	- retrieve the //stash address
 	- follow the format below
 - run the configuration commands
-	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node1-babe.json"
-	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node1-grandpa.json"
-	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node2-babe.json"
-	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node2-grandpa.json"
+	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node-1.babe.json"
+	curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "@./node-1.grandpa.json"
+	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node-2.babe.json"
+	curl http://localhost:9934 -H "Content-Type:application/json;charset=utf-8" -d "@./node-2.grandpa.json"
 
 	where the content of the babe file is:
 	{
