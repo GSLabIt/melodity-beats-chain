@@ -75,9 +75,6 @@ use pallet_contracts::WeightInfo;
 use hex_literal::hex;
 use sp_core::crypto::Public;
 use sp_core::{H160, H256, U256};
-use fp_rpc::TransactionStatus;
-use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, HashedAddressMapping, Runner};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -1687,81 +1684,6 @@ impl melodity_airdrop::Config for Runtime {
 	type Currency = Balances;
 }
 
-/* parameter_types! {
-	pub const ChainId: u64 = 57;
-	pub BlockGasLimit: U256 = U256::from(u32::max_value());
-}
-
-impl pallet_evm::Config for Runtime {
-	type Event = Event;
-
-	// Calculator for current gas price.
-	type FeeCalculator = pallet_dynamic_fee::Module<Self>;
-
-	/// Maps Ethereum gas to Substrate weight.
-	type GasWeightMapping = ();
-
-	/// Block number to block hash.
-	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping;
-
-	/// Allow the origin to call on behalf of given address.
-	type CallOrigin = EnsureAddressTruncated;
-
-	/// Allow the origin to withdraw on behalf of given address.
-	type WithdrawOrigin = EnsureAddressTruncated;
-
-	/// Mapping from address to account id.
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
-
-	/// Currency type for withdraw and balance storage.
-	type Currency = Balances;
-
-	/// EVM execution runner.
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
-
-	/// Precompiles associated with this EVM engine.
-	type Precompiles = (
-		pallet_evm_precompile_simple::ECRecover,
-		pallet_evm_precompile_simple::Sha256,
-		pallet_evm_precompile_simple::Ripemd160,
-		pallet_evm_precompile_simple::Identity,
-		pallet_evm_precompile_modexp::Modexp,
-		pallet_evm_precompile_simple::ECRecoverPublicKey,
-		pallet_evm_precompile_sha3fips::Sha3FIPS256,
-		pallet_evm_precompile_sha3fips::Sha3FIPS512,
-	);
-
-	/// Chain ID of EVM.
-	type ChainId = ChainId;
-
-	/// The block gas limit. Can be a simple constant, or an adjustment algorithm in another pallet.
-	type BlockGasLimit = BlockGasLimit;
-
-	/// To handle fee deduction for EVM transactions. An example is this pallet being used by `pallet_ethereum`
-	/// where the chain implementing `pallet_ethereum` should be able to configure what happens to the fees
-	/// Similar to `OnChargeTransaction` of `pallet_transaction_payment`
-	type OnChargeTransaction = ();
-
-	/// Find author for the current block.
-	type FindAuthor = FindAuthorTruncated<Babe>; // pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-}
-
-impl pallet_ethereum::Config for Runtime {
-	type Event = Event;
-
-	/// How Ethereum state root is calculated.
-	type StateRoot = pallet_ethereum::IntermediateStateRoot;
-}
-
-frame_support::parameter_types! {
-	pub BoundDivision: U256 = U256::from(1024);
-}
-
-impl pallet_dynamic_fee::Config for Runtime {
-	/// Bound divisor for min gas price.
-	type MinGasPriceBoundDivisor = BoundDivision;
-} */
-
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1810,37 +1732,10 @@ construct_runtime!(
 		TrackElection: melodity_track_election::{Module, Call, Storage, Event<T>, Config<T>},
 		Bridge: melodity_bridge::{Module, Call, Storage, Event<T>, Config},
 		Airdrop: melodity_airdrop::{Module, Call, Storage, Event<T>},
-
-		// frontier
-		// Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
-		// Evm: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-		// DynamicFee: pallet_dynamic_fee::{Module, Call, Storage, Config, Inherent},
 	}
 );
 
 pub struct TransactionConverter;
-
-/* impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
-	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
-		UncheckedExtrinsic::new_unsigned(
-			pallet_ethereum::Call::<Runtime>::transact(transaction).into(),
-		)
-	}
-} */
-
-/* impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConverter {
-	fn convert_transaction(
-		&self,
-		transaction: pallet_ethereum::Transaction,
-	) -> opaque::UncheckedExtrinsic {
-		let extrinsic = UncheckedExtrinsic::new_unsigned(
-			pallet_ethereum::Call::<Runtime>::transact(transaction).into(),
-		);
-		let encoded = extrinsic.encode();
-		opaque::UncheckedExtrinsic::decode(&mut &encoded[..])
-			.expect("Encoded extrinsic is always valid")
-	}
-} */
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
@@ -2071,125 +1966,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	/* impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
-		fn chain_id() -> u64 {
-			<Runtime as pallet_evm::Config>::ChainId::get()
-		}
-
-		fn account_basic(address: H160) -> EVMAccount {
-			Evm::account_basic(&address)
-		}
-
-		fn gas_price() -> U256 {
-			<Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price()
-		}
-
-		fn account_code_at(address: H160) -> Vec<u8> {
-			Evm::account_codes(address)
-		}
-
-		fn author() -> H160 {
-			<pallet_evm::Module<Runtime>>::find_author()
-		}
-
-		fn storage_at(address: H160, index: U256) -> H256 {
-			let mut tmp = [0u8; 32];
-			index.to_big_endian(&mut tmp);
-			Evm::account_storages(address, H256::from_slice(&tmp[..]))
-		}
-
-		fn call(
-			from: H160,
-			to: H160,
-			data: Vec<u8>,
-			value: U256,
-			gas_limit: U256,
-			gas_price: Option<U256>,
-			nonce: Option<U256>,
-			estimate: bool,
-		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
-			let config = if estimate {
-				let mut config = <Runtime as pallet_evm::Config>::config().clone();
-				config.estimate = true;
-				Some(config)
-			} else {
-				None
-			};
-
-			<Runtime as pallet_evm::Config>::Runner::call(
-				from,
-				to,
-				data,
-				value,
-				gas_limit.low_u64(),
-				gas_price,
-				nonce,
-				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
-			).map_err(|err| err.into())
-		}
-
-		fn create(
-			from: H160,
-			data: Vec<u8>,
-			value: U256,
-			gas_limit: U256,
-			gas_price: Option<U256>,
-			nonce: Option<U256>,
-			estimate: bool,
-		) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
-			let config = if estimate {
-				let mut config = <Runtime as pallet_evm::Config>::config().clone();
-				config.estimate = true;
-				Some(config)
-			} else {
-				None
-			};
-
-			<Runtime as pallet_evm::Config>::Runner::create(
-				from,
-				data,
-				value,
-				gas_limit.low_u64(),
-				gas_price,
-				nonce,
-				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
-			).map_err(|err| err.into())
-		}
-
-		fn current_transaction_statuses() -> Option<Vec<TransactionStatus>> {
-			Ethereum::current_transaction_statuses()
-		}
-
-		fn current_block() -> Option<pallet_ethereum::Block> {
-			Ethereum::current_block()
-		}
-
-		fn current_receipts() -> Option<Vec<pallet_ethereum::Receipt>> {
-			Ethereum::current_receipts()
-		}
-
-		fn current_all() -> (
-			Option<pallet_ethereum::Block>,
-			Option<Vec<pallet_ethereum::Receipt>>,
-			Option<Vec<TransactionStatus>>
-		) {
-			(
-				Ethereum::current_block(),
-				Ethereum::current_receipts(),
-				Ethereum::current_transaction_statuses()
-			)
-		}
-
-		fn extrinsic_filter(
-			xts: Vec<<Block as BlockT>::Extrinsic>,
-		) -> Vec<EthereumTransaction> {
-			xts.into_iter().filter_map(|xt| match xt.function {
-				Call::Ethereum(transact(t)) => Some(t),
-				_ => None
-			}).collect::<Vec<EthereumTransaction>>()
-		}
-	} */
-
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
 		Block,
 		Balance,
@@ -2250,7 +2026,6 @@ impl_runtime_apis! {
 			use pallet_offences_benchmarking::Module as OffencesBench;
 			use frame_system_benchmarking::Module as SystemBench;
 
-			use pallet_evm::Module as PalletEvmBench;
 
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_offences_benchmarking::Config for Runtime {}
@@ -2274,7 +2049,6 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			add_benchmark!(params, batches, pallet_evm, PalletEvmBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_assets, Assets);
 			add_benchmark!(params, batches, pallet_babe, Babe);
 			add_benchmark!(params, batches, pallet_balances, Balances);

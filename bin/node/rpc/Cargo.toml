@@ -37,9 +37,5 @@ sp-consensus-babe = { version = "0.9.0", path = "../../../primitives/consensus/b
 sp-runtime = { version = "3.0.0", path = "../../../primitives/runtime" }
 sp-transaction-pool = { version = "3.0.0", path = "../../../primitives/transaction-pool" }
 substrate-frame-rpc-system = { version = "3.0.0", path = "../../../utils/frame/rpc/system" }
-pallet-ethereum = { path = "../../../frame/ethereum" }
-fc-rpc-core = { path = "../../../client/rpc-core" }
-fp-rpc = { path = "../../../primitives/frontier-rpc" }
-fc-db = { path = "../../../client/frontier-db" }
 sc-network = { path = "../../../client/network" }
 

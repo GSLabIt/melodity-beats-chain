@@ -31,7 +31,6 @@
 #![warn(missing_docs)]
 
 use std::sync::Arc;
-use fc_rpc_core::types::{FilterPool, PendingTransactions};
 
 use sp_keystore::SyncCryptoStorePtr;
 use node_primitives::{Block, BlockNumber, AccountId, Index, Balance, Hash};
@@ -56,8 +55,6 @@ use sc_client_api::{
 	client::BlockchainEvents,
 };
 use jsonrpc_pubsub::manager::SubscriptionManager;
-use pallet_ethereum::EthereumStorageSchema;
-use sc_rpc::{OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override, StorageOverride};
 use std::collections::BTreeMap;
 use sc_network::NetworkService;
 
@@ -168,9 +165,9 @@ pub fn create_full<C, P, SC, B>(
 	// Making synchronous calls in light client freezes the browser currently,
 	// more context: https://github.com/paritytech/substrate/pull/3480
 	// These RPCs should use an asynchronous caller instead.
-	/* io.extend_with(
+	io.extend_with(
 		ContractsApi::to_delegate(Contracts::new(client.clone()))
-	); */
+	);
 	io.extend_with(
 		TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone()))
 	);
