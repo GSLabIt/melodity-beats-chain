@@ -24,17 +24,17 @@
 
 mod errors;
 mod helpers;
-pub mod metadata;
+mod metadata;
 mod policy;
 
 pub use helpers::Receiver;
 pub use jsonrpc_core::IoHandlerExtension as RpcExtension;
-//pub use metadata::Metadata as Metadata;
-pub use policy::DenyUnsafe;
+pub use metadata::Metadata;
+pub use policy::{DenyUnsafe, UnsafeRpcError};
 
 pub mod author;
 pub mod chain;
+pub mod child_state;
 pub mod offchain;
 pub mod state;
-pub mod child_state;
 pub mod system;

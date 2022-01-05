@@ -90,30 +90,26 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use codec::{Codec, Encode, Decode, FullCodec};
-use sp_std::{
-	fmt::Debug,
-	prelude::*,
+use codec::Codec;
+use frame_support::traits::{
+	BalanceStatus::Reserved, Currency, ReservableCurrency, WithdrawReasons, ExistenceRequirement,
+	InitializeMembers, ChangeMembers, OnUnbalanced
 };
-use frame_support::{
-	decl_module, decl_storage, decl_event, ensure, decl_error,
+use sp_runtime::{
 	traits::{
-		EnsureOrigin, ChangeMembers, InitializeMembers, Currency, Get, ReservableCurrency, 
-		WithdrawReasons, ExistenceRequirement, OnUnbalanced,
+		AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero, AtLeast128BitUnsigned,
+		CheckedAdd
 	},
-	weights::Weight,
-	pallet_prelude::{StorageDoubleMap, Twox64Concat, ValueQuery},
+	MultiAddress, Percent
 };
-use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::traits::{AtLeast128BitUnsigned, MaybeSerializeDeserialize, Zero, StaticLookup};
-use sp_runtime::{Percent, DispatchResult};
 use sp_std::prelude::*;
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
 use melodity_nft::NftExistance;
-use sp_runtime::traits::CheckedAdd;
 
-type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub use pallet::*;
+
 type PoolT<T> = Vec<((<T as frame_system::Config>::AccountId, u128), u128)>;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
@@ -129,147 +125,137 @@ enum ChangeReceiver {
 	MembershipChanged,
 }
 
-pub trait Config: frame_system::Config {
-	/// The currency used for deposits.
-	type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+#[frame_support::pallet]
+pub mod pallet {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(PhantomData<T>);
 
-	/// The balance type of the the pool
-	type Balance: Parameter + Member + AtLeast128BitUnsigned + Codec + Default + Copy +
-		MaybeSerializeDeserialize + Debug;
-
-	// The deposit which is reserved from candidates if they want to
-	// start a candidacy. The deposit gets returned when the candidacy is
-	// withdrawn or when the candidate is kicked.
-	type CandidateDeposit: Get<BalanceOf<Self>>;
-
-	/// Every `Period` blocks the `Members` are filled with the highest scoring
-	/// members in the `Pool`.
-	type Period: Get<Self::BlockNumber>;
-
-	/// The receiver of the signal for when the membership has been initialized.
-	/// This happens pre-genesis and will usually be the same as `MembershipChanged`.
-	/// If you need to do something different on initialization, then you can change
-	/// this accordingly.
-	type MembershipInitialized: InitializeMembers<Self::AccountId>;
-
-	/// The receiver of the signal for when the members have changed.
-	type MembershipChanged: ChangeMembers<Self::AccountId>;
-
-	/// Required origin for making all the administrative modifications
-	type ControllerOrigin: EnsureOrigin<Self::Origin>;
-
-	/// Percentage of the pool prize to reward to the first classified
-	type FirstPrize: Get<Percent>;
-
-	/// Percentage of the pool prize to reward to the second classified
-	type SecondPrize: Get<Percent>;
-
-	/// Percentage of the pool prize to reward to the third classified
-	type ThirdPrize: Get<Percent>;
-
-	/// Percentage of the pool prize to reward to the platform account
-	type PlatformFee: Get<Percent>;
-
-	/// Platform pot account where all the on-chain platform funds are stored
-	type PlatformPot: Get<Self::AccountId>;
-
-	/// Where the eventually remaining funds of the prize goes
-	type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
-
-	/// Instance of the melodity_nft pallet
-	type Nft: NftExistance<u128, u128, Self::AccountId>;
-
-	/// The prize given to the listener for the vote of a track
-	/// The vector contains one or more tuples responsible for the prize handling
-	/// Each tuple is constituted as follows:
-	/// (
-	/// 	number_of_tracks_participating_in_election,
-	///		prize_given_to_artist_participanting_in_election,
-	///		prize_given_to_listener_non_participating_in_election
-	/// )
-	type VoterPrize: Get<Vec<(u128, u128, u128)>>;
-
-	/// The maximum prize a user can receive, this value is used to compute the
-	/// prize as follows:
-	///		max_prize = (number_of_tracks_participating_in_election + 1) * prize_limiter
-	type PrizeLimiter: Get<u128>;
-}
-
-decl_storage! {
-	trait Store for Module<T: Config> as ScoredPool {
-		/// The current pool of candidates, stored as an ordered Vec
-		/// (ordered descending by score, `None` last, highest first).
-		Pool get(fn pool): PoolT<T>;
-
-		/// A Map of the candidates. The information in this Map is redundant
-		/// to the information in the `Pool`. But the Map enables us to easily
-		/// check if a candidate is already in the pool, without having to
-		/// iterate over the entire pool (the `Pool` is not sorted by
-		/// `T::AccountId`, but by `T::Score` instead).
-		CandidateExists get(fn candidate_exists): 
-			double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) u128 => bool;
-
-		CandidateNumber get(fn candidate_number): u128;
-
-		/// The current membership, stored as an ordered Vec.
-		Members get(fn members): Vec<T::AccountId>;
-
-		/// Size of the `Members` set.
-		MemberCount get(fn member_count): u8;
-
-		/// Pool prize
-		PoolBalance get(fn pool_balance): BalanceOf<T>;
-
-		/// A map of the addresses allowed to vote an nft (associated to an owner) participating to the election
-		/// [voter, nft_owner, nft_id] => true
-		CanVoteCandidate get(fn can_vote_candidate): 
-			double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (T::AccountId, u128) => bool;
-		
-		/// Store the address of the user receiving the prize and the total prize already
-		/// received
-		GivenPrizes get(fn given_prizes): 
-			map hasher(twox_64_concat) T::AccountId => u128;
+	/// The module's config trait.
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// The currency used for deposits.
+		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+	
+		/// The overarching event type.
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+	
+		/// The balance type of the the pool
+		type Balance: Parameter + Member + AtLeast128BitUnsigned + Codec + Default + Copy +
+			MaybeSerializeDeserialize;
+	
+		// The deposit which is reserved from candidates if they want to
+		// start a candidacy. The deposit gets returned when the candidacy is
+		// withdrawn or when the candidate is kicked.
+		type CandidateDeposit: Get<BalanceOf<Self>>;
+	
+		/// Every `Period` blocks the `Members` are filled with the highest scoring
+		/// members in the `Pool`.
+		type Period: Get<Self::BlockNumber>;
+	
+		/// The receiver of the signal for when the membership has been initialized.
+		/// This happens pre-genesis and will usually be the same as `MembershipChanged`.
+		/// If you need to do something different on initialization, then you can change
+		/// this accordingly.
+		type MembershipInitialized: InitializeMembers<Self::AccountId>;
+	
+		/// The receiver of the signal for when the members have changed.
+		type MembershipChanged: ChangeMembers<Self::AccountId>;
+	
+		/// Required origin for making all the administrative modifications
+		type ControllerOrigin: EnsureOrigin<Self::Origin>;
+	
+		/// Percentage of the pool prize to reward to the first classified
+		type FirstPrize: Get<Percent>;
+	
+		/// Percentage of the pool prize to reward to the second classified
+		type SecondPrize: Get<Percent>;
+	
+		/// Percentage of the pool prize to reward to the third classified
+		type ThirdPrize: Get<Percent>;
+	
+		/// Percentage of the pool prize to reward to the platform account
+		type PlatformFee: Get<Percent>;
+	
+		/// Platform pot account where all the on-chain platform funds are stored
+		type PlatformPot: Get<Self::AccountId>;
+	
+		/// Where the eventually remaining funds of the prize goes
+		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
+	
+		/// Instance of the melodity_nft pallet
+		type Nft: NftExistance<u128, u128, Self::AccountId>;
+	
+		/// The prize given to the listener for the vote of a track
+		/// The vector contains one or more tuples responsible for the prize handling
+		/// Each tuple is constituted as follows:
+		/// (
+		/// 	number_of_tracks_participating_in_election,
+		///		prize_given_to_artist_participanting_in_election,
+		///		prize_given_to_listener_non_participating_in_election
+		/// )
+		type VoterPrize: Get<Vec<(u128, u128, u128)>>;
+	
+		/// The maximum prize a user can receive, this value is used to compute the
+		/// prize as follows:
+		///		max_prize = (number_of_tracks_participating_in_election + 1) * prize_limiter
+		type PrizeLimiter: Get<u128>;
 	}
-	add_extra_genesis {
-		config(members): Vec<T::AccountId>;
-		config(member_count): u8;
-		build(|config| {})
-	}
-}
 
-decl_event!(
-	pub enum Event<T> where
-		<T as frame_system::Config>::AccountId,
-		Balance = BalanceOf<T>
-	{
-		/// An entity was just kicked out
-		CandidateKicked,
-		/// An entity has issued a candidacy. See the transaction for who.
-		CandidateAdded,
-		/// The candidacy was forcefully removed for an entity.
-		/// See the transaction for who.
-		/// \[sender, nft_owner, nft_id\]
-		VoteEnabled(AccountId, AccountId, u128),
-		/// A score was attributed to the candidate.
-		/// See the transaction for who.
-		/// \[nft_owner, nft_id\]
-		CandidateScored(AccountId, u128),
-		/// The prize distributed to the winner and the amount
-		/// \[{first, prize}, {second, prize}, {third, prize}\]
-		PrizeDistributed(
-			Vec<(AccountId, Balance)>, 
-			Vec<(AccountId, Balance)>,
-			Vec<(AccountId, Balance)>
-		),
-	}
-);
+	#[pallet::storage]
+	#[pallet::getter(fn pool)]
+	/// The current pool of candidates, stored as an ordered Vec
+	/// (ordered descending by score, `None` last, highest first).
+	pub type Pool<T: Config> = StorageValue<_, PoolT<T>, ValueQuery>;
 
-decl_error! {
-	/// Error for the scored-pool module.
-	pub enum Error for Module<T: Config> {
+	#[pallet::storage]
+	#[pallet::getter(fn candidate_exists)]
+	/// A Map of the candidates. The information in this Map is redundant
+	/// to the information in the `Pool`. But the Map enables us to easily
+	/// check if a candidate is already in the pool, without having to
+	/// iterate over the entire pool (the `Pool` is not sorted by
+	/// `T::AccountId`, but by `T::Score` instead).
+	pub type CandidateExists<T: Config> = StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u128, bool>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn candidate_number)]
+	pub type CandidateNumber<T: Config> = StorageValue<_, u128, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn members)]
+	/// The current membership, stored as an ordered Vec.
+	pub type Members<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn member_count)]
+	/// Size of the `Members` set.
+	pub type MemberCount<T: Config> = StorageValue<_, u8, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pool_balance)]
+	/// Pool prize
+	pub type PoolBalance<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn can_vote_candidate)]
+	/// A map of the addresses allowed to vote an nft (associated to an owner) participating to the election
+	/// [voter, nft_owner, nft_id] => true
+	pub type CanVoteCandidate<T: Config> = 
+		StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, (T::AccountId, u128), bool>;
+	
+	#[pallet::storage]
+	#[pallet::getter(fn given_prizes)]
+	/// Store the address of the user receiving the prize and the total prize already
+	/// received
+	pub type GivenPrizes<T: Config> = 
+		StorageMap<_, Blake2_128Concat, T::AccountId, u128>;
+
+	#[pallet::error]
+	pub enum Error<T> {
 		/// Already a member.
 		AlreadyInPool,
 		/// Index out of bounds.
@@ -297,23 +283,40 @@ decl_error! {
 		/// The maximum reachable prize overflows its limit
 		MaximumReachablePrizeTooHigh,
 	}
-}
 
-decl_module! {
-	pub struct Module<T: Config>
-		for enum Call
-		where origin: T::Origin
-	{
-		type Error = Error<T>;
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
+	pub enum Event<T: Config> {
+		/// An entity was just kicked out
+		CandidateKicked,
+		/// An entity has issued a candidacy. See the transaction for who.
+		CandidateAdded,
+		/// The candidacy was forcefully removed for an entity.
+		/// See the transaction for who.
+		/// \[sender, nft_owner, nft_id\]
+		VoteEnabled(T::AccountId, T::AccountId, u128),
+		/// A score was attributed to the candidate.
+		/// See the transaction for who.
+		/// \[nft_owner, nft_id\]
+		CandidateScored(T::AccountId, u128),
+		/// The prize distributed to the winner and the amount
+		/// \[{first, prize}, {second, prize}, {third, prize}\]
+		PrizeDistributed(
+			Vec<(T::AccountId, BalanceOf::<T>)>, 
+			Vec<(T::AccountId, BalanceOf::<T>)>,
+			Vec<(T::AccountId, BalanceOf::<T>)>
+		),
+	}
 
-		fn deposit_event() = default;
-
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Every `Period` blocks the `Members` set is refreshed from the
 		/// highest scoring members in the pool.
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			if n % T::Period::get() == Zero::zero() {
 				let mut pool = <Pool<T>>::get();
-				<Module<T>>::refresh_members(&pool, ChangeReceiver::MembershipChanged);
+				<Pallet<T>>::refresh_members(&pool, ChangeReceiver::MembershipChanged);
 				let mut pool_balance = <PoolBalance<T>>::get();
 				let first_prize: BalanceOf::<T> = T::FirstPrize::get().mul_floor(pool_balance);
 				let second_prize: BalanceOf::<T> = T::SecondPrize::get().mul_floor(pool_balance);
@@ -341,10 +344,10 @@ decl_module! {
 						));
 
 						// empty the pool
-						<CandidateExists<T>>::remove_all();
-						<CanVoteCandidate<T>>::remove_all();
-						<GivenPrizes<T>>::remove_all();
-						CandidateNumber::put(0);
+						<CandidateExists<T>>::remove_all(None);
+						<CanVoteCandidate<T>>::remove_all(None);
+						<GivenPrizes<T>>::remove_all(None);
+						<CandidateNumber<T>>::put(0);
 						pool.clear();
 						<Pool<T>>::put(pool);
 						pool_balance = BalanceOf::<T>::zero();
@@ -398,10 +401,10 @@ decl_module! {
 				// finally reset the pool balance
 				pool_balance = BalanceOf::<T>::zero();
 				// empty the pool
-				<CandidateExists<T>>::remove_all();
-				<CanVoteCandidate<T>>::remove_all();
-				<GivenPrizes<T>>::remove_all();
-				CandidateNumber::put(0);
+				<CandidateExists<T>>::remove_all(None);
+				<CanVoteCandidate<T>>::remove_all(None);
+				<GivenPrizes<T>>::remove_all(None);
+				<CandidateNumber<T>>::put(0);
 				pool.clear();
 				<Pool<T>>::put(pool);
 				<PoolBalance<T>>::put(pool_balance);
@@ -409,7 +412,10 @@ decl_module! {
 			}
 			0
 		}
+	}
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
 		/// Add `origin` to the pool of candidates.
 		/// This results in `CandidateDeposit` being withdrawn from
 		/// the `origin` account. 
@@ -418,8 +424,8 @@ decl_module! {
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of the transactor in the `Pool`.
-		#[weight = 1_000_000_000]
-		pub fn submit_candidacy(origin, nft_id: u128) {
+		#[pallet::weight(1_000_000_000)]
+		pub fn submit_candidacy(origin: OriginFor<T>, nft_id: u128) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!<CandidateExists<T>>::contains_key(&who, &nft_id), Error::<T>::AlreadyInPool);
 			// check nft existance
@@ -448,9 +454,10 @@ decl_module! {
 			<CandidateExists<T>>::insert(&who, &nft_id, true);
 
 			// no checks are performed here as the number should already be locked by the max pool prize
-			CandidateNumber::put(CandidateNumber::get() + 1);
+			<CandidateNumber<T>>::put(<CandidateNumber<T>>::get() + 1);
 
-			Self::deposit_event(RawEvent::CandidateAdded);
+			Self::deposit_event(Event::<T>::CandidateAdded);
+			Ok(())
 		}
 
 		/// Kick a member `who` from the set.
@@ -459,12 +466,12 @@ decl_module! {
 		///
 		/// The `index` parameter of this function must be set to
 		/// the index of `dest` in the `Pool`.
-		#[weight = 1_000_000_000]
+		#[pallet::weight(1_000_000_000)]
 		pub fn kick(
-			origin,
+			origin: OriginFor<T>,
 			dest: <T::Lookup as StaticLookup>::Source,
 			nft_id: u128
-		) {
+		) -> DispatchResult {
 			T::ControllerOrigin::ensure_origin(origin)?;
 
 			let who = T::Lookup::lookup(dest)?;
@@ -472,23 +479,25 @@ decl_module! {
 			let pool = <Pool<T>>::get();
 
 			// reduce the candidates number
-			let candidates = CandidateNumber::get();
+			let candidates = <CandidateNumber<T>>::get();
 			if candidates > 0 {
-				CandidateNumber::put(candidates - 1);
+				<CandidateNumber<T>>::put(candidates - 1);
 			}
 
 			Self::remove_member(pool, who, nft_id)?;
-			Self::deposit_event(RawEvent::CandidateKicked);
+			Self::deposit_event(Event::<T>::CandidateKicked);
+			
+			Ok(())
 		}
 
 		/// Grant the provided user the right to vote the pair of (nft_owner, nft_id)
-		#[weight = (1_000_000, DispatchClass::Normal, Pays::No)]
+		#[pallet::weight((1_000_000, DispatchClass::Normal, Pays::No))]
 		pub fn grant_vote_right(
-			origin,
+			origin: OriginFor<T>,
 			dest: <T::Lookup as StaticLookup>::Source,
 			nft_owner: <T::Lookup as StaticLookup>::Source,
 			nft_id: u128
-		) {
+		) -> DispatchResult {
 			T::ControllerOrigin::ensure_origin(origin)?;
 
 			let voter = T::Lookup::lookup(dest)?;
@@ -513,10 +522,12 @@ decl_module! {
 			<CanVoteCandidate<T>>::mutate(
 				voter.clone(), 
 				(owner.clone(), nft_id),
-				|v| *v = true
+				|v| *v = Some(true)
 			);
 
-			Self::deposit_event(RawEvent::VoteEnabled(voter, owner, nft_id));
+			Self::deposit_event(Event::<T>::VoteEnabled(voter, owner, nft_id));
+
+			Ok(())
 		}
 
 		/// Score a member `who` with `score`.
@@ -526,13 +537,13 @@ decl_module! {
 		/// the index of the `dest` in the `Pool`.
 		/// 
 		/// zero weight as it should be callable by anyone even without any balance
-		#[weight = 1_000_000_000]
+		#[pallet::weight(1_000_000_000)]
 		pub fn score(
-			origin,
+			origin: OriginFor<T>,
 			dest: <T::Lookup as StaticLookup>::Source,
 			nft_id: u128,
 			score: u128
-		) {
+		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			let who = T::Lookup::lookup(dest)?;
@@ -547,7 +558,7 @@ decl_module! {
 			ensure!(<CanVoteCandidate<T>>::get(
 				sender.clone(), 
 				(who.clone(),nft_id)
-			), Error::<T>::AlreadyVoted);
+			).unwrap_or(false), Error::<T>::AlreadyVoted);
 
 			// check that the vote is within the valid range
 			ensure!(score >= 0u128 && score <= 10u128, Error::<T>::ScoreNotValid);
@@ -577,7 +588,7 @@ decl_module! {
 			<CanVoteCandidate<T>>::mutate(
 				sender.clone(), 
 				(who.clone(),nft_id),
-				|v| *v = false
+				|v| *v = Some(false)
 			);
 
 			// remove the record from the pool, it will be reinserted asap with the correct order
@@ -599,11 +610,11 @@ decl_module! {
 			<Pool<T>>::put(&pool);
 
 			// Compute the vote prize!
-			let candidates = CandidateNumber::get();
+			let candidates = <CandidateNumber<T>>::get();
 			let tracks_in_election: u128 = (<CandidateExists<T>>::iter_prefix_values(sender.clone()).count() + 1) as u128;
 			let maximum_prize = tracks_in_election.checked_mul(T::PrizeLimiter::get()).ok_or(Error::<T>::MaximumReachablePrizeTooHigh)?;
 			let already_given_prize: u128 = if GivenPrizes::<T>::contains_key(sender.clone()) {
-				<GivenPrizes<T>>::get(sender.clone())
+				<GivenPrizes<T>>::get(sender.clone()).unwrap_or(0)
 			}
 			else {
 				0
@@ -647,7 +658,7 @@ decl_module! {
 				}
 				else {
 					GivenPrizes::<T>::try_mutate(sender.clone(), |value| -> DispatchResult {
-						*value = ending_prize + already_given_prize;
+						*value = Some(ending_prize + already_given_prize);
 						Ok(())
 					});
 				}
@@ -656,24 +667,16 @@ decl_module! {
 				T::Currency::deposit_creating(&sender, ending_prize.into());
 			}
 
-			Self::deposit_event(RawEvent::CandidateScored(who, nft_id));
-		}
+			Self::deposit_event(Event::<T>::CandidateScored(who, nft_id));
 
-		/// Dispatchable call to change `MemberCount`.
-		///
-		/// This will only have an effect the next time a refresh happens
-		/// (this happens each `Period`).
-		///
-		/// May only be called from root.
-		#[weight = 1_000_000_000]
-		pub fn change_member_count(origin, count: u8) {
-			T::ControllerOrigin::ensure_origin(origin)?;
-			<MemberCount>::put(&count);
+			Ok(())
 		}
 	}
 }
 
-impl<T: Config> Module<T> {
+pub use pallet::*;
+
+impl<T: Config> Pallet<T> {
 
 	/// Fetches the `MemberCount` highest scoring members from
 	/// `Pool` and puts them into `Members`.
@@ -684,7 +687,7 @@ impl<T: Config> Module<T> {
 		pool: &PoolT<T>,
 		notify: ChangeReceiver
 	) {
-		let count = <MemberCount>::get();
+		let count = <MemberCount<T>>::get();
 
 		let mut new_members: Vec<T::AccountId> = pool
 			.into_iter()

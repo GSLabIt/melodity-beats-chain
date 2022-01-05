@@ -22,23 +22,21 @@
 
 #![warn(missing_docs)]
 
-use futures::{compat::Future01CompatExt, FutureExt};
-use rpc::futures::future::{Executor, ExecuteError, Future};
+use futures::{
+	task::{FutureObj, Spawn, SpawnError},
+	FutureExt,
+};
 use sp_core::traits::SpawnNamed;
 use std::sync::Arc;
 
-pub use sc_rpc_api::{DenyUnsafe, metadata::Metadata};
 pub use rpc::IoHandlerExtension as RpcExtension;
+pub use sc_rpc_api::{DenyUnsafe, Metadata};
 
 pub mod author;
 pub mod chain;
 pub mod offchain;
 pub mod state;
 pub mod system;
-
-use rpc::{Error, ErrorCode, Value};
-use rustc_hex::ToHex;
-use sha3::{Digest, Keccak256};
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod testing;
@@ -54,20 +52,13 @@ impl SubscriptionTaskExecutor {
 	}
 }
 
-impl Executor<Box<dyn Future<Item = (), Error = ()> + Send>> for SubscriptionTaskExecutor {
-	fn execute(
-		&self,
-		future: Box<dyn Future<Item = (), Error = ()> + Send>,
-	) -> Result<(), ExecuteError<Box<dyn Future<Item = (), Error = ()> + Send>>> {
-		self.0.spawn("substrate-rpc-subscription", future.compat().map(drop).boxed());
+impl Spawn for SubscriptionTaskExecutor {
+	fn spawn_obj(&self, future: FutureObj<'static, ()>) -> Result<(), SpawnError> {
+		self.0.spawn("substrate-rpc-subscription", future.map(drop).boxed());
 		Ok(())
 	}
-}
 
-pub fn internal_err<T: ToString>(message: T) -> Error {
-	Error {
-		code: ErrorCode::InternalError,
-		message: message.to_string(),
-		data: None,
+	fn status(&self) -> Result<(), SpawnError> {
+		Ok(())
 	}
 }

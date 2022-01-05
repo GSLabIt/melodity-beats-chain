@@ -18,25 +18,23 @@
 
 //! Configuration trait for a CLI based on substrate
 
-use crate::arg_enums::Database;
-use crate::error::Result;
 use crate::{
-	DatabaseParams, ImportParams, KeystoreParams, NetworkParams, NodeKeyParams,
-	OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
 use sc_client_api::execution_extensions::ExecutionStrategies;
-use sc_service::config::{
-	BasePath, Configuration, DatabaseConfig, ExtTransport, KeystoreConfig, NetworkConfiguration,
-	NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
-	TaskExecutor, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+use sc_service::{
+	config::{
+		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
+		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
+		TaskExecutor, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+	},
+	ChainSpec, KeepBlocks, TracingReceiver, TransactionStorageMode,
 };
-use sc_service::{ChainSpec, TracingReceiver, KeepBlocks, TransactionStorageMode};
-use sc_telemetry::{TelemetryHandle, TelemetrySpan};
 use sc_tracing::logging::LoggerBuilder;
-use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -160,6 +158,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		&self,
 		chain_spec: &Box<dyn ChainSpec>,
 		is_dev: bool,
+		is_validator: bool,
 		net_config_dir: PathBuf,
 		client_id: &str,
 		node_name: &str,
@@ -170,6 +169,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
+				is_validator,
 				Some(net_config_dir),
 				client_id,
 				node_name,
@@ -177,12 +177,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				default_listen_port,
 			)
 		} else {
-			NetworkConfiguration::new(
-				node_name,
-				client_id,
-				node_key,
-				Some(net_config_dir),
-			)
+			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
 		})
 	}
 
@@ -200,14 +195,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	///
 	/// By default this is retrieved from `DatabaseParams` if it is available. Otherwise its `None`.
 	fn database_cache_size(&self) -> Result<Option<usize>> {
-		Ok(self.database_params()
-			.map(|x| x.database_cache_size())
-			.unwrap_or_default())
+		Ok(self.database_params().map(|x| x.database_cache_size()).unwrap_or_default())
 	}
 
 	/// Get the database transaction storage scheme.
 	fn database_transaction_storage(&self) -> Result<TransactionStorageMode> {
-		Ok(self.database_params()
+		Ok(self
+			.database_params()
 			.map(|x| x.transaction_storage())
 			.unwrap_or(TransactionStorageMode::BlockBody))
 	}
@@ -225,15 +219,18 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		base_path: &PathBuf,
 		cache_size: usize,
 		database: Database,
-	) -> Result<DatabaseConfig> {
+		role: &Role,
+	) -> Result<DatabaseSource> {
+		let role_dir = match role {
+			Role::Light => "light",
+			Role::Full | Role::Authority => "full",
+		};
+		let rocksdb_path = base_path.join("db").join(role_dir);
+		let paritydb_path = base_path.join("paritydb").join(role_dir);
 		Ok(match database {
-			Database::RocksDb => DatabaseConfig::RocksDb {
-				path: base_path.join("db"),
-				cache_size,
-			},
-			Database::ParityDb => DatabaseConfig::ParityDb {
-				path: base_path.join("paritydb"),
-			},
+			Database::RocksDb => DatabaseSource::RocksDb { path: rocksdb_path, cache_size },
+			Database::ParityDb => DatabaseSource::ParityDb { path: rocksdb_path },
+			Database::Auto => DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size },
 		})
 	}
 
@@ -241,9 +238,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	///
 	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `0`.
 	fn state_cache_size(&self) -> Result<usize> {
-		Ok(self.import_params()
-			.map(|x| x.state_cache_size())
-			.unwrap_or_default())
+		Ok(self.import_params().map(|x| x.state_cache_size()).unwrap_or_default())
 	}
 
 	/// Get the state cache child ratio (if any).
@@ -292,18 +287,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its
 	/// `WasmExecutionMethod::default()`.
 	fn wasm_method(&self) -> Result<WasmExecutionMethod> {
-		Ok(self.import_params()
-			.map(|x| x.wasm_method())
-			.unwrap_or_default())
+		Ok(self.import_params().map(|x| x.wasm_method()).unwrap_or_default())
 	}
 
 	/// Get the path where WASM overrides live.
 	///
 	/// By default this is `None`.
 	fn wasm_runtime_overrides(&self) -> Option<PathBuf> {
-		self.import_params()
-			.map(|x| x.wasm_runtime_overrides())
-			.unwrap_or_default()
+		self.import_params().map(|x| x.wasm_runtime_overrides()).unwrap_or_default()
 	}
 
 	/// Get the execution strategies.
@@ -357,11 +348,23 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(None)
 	}
 
+	/// Get the RPC HTTP thread pool size (`None` for a default 4-thread pool config).
+	///
+	/// By default this is `None`.
+	fn rpc_http_threads(&self) -> Result<Option<usize>> {
+		Ok(None)
+	}
+
 	/// Get the RPC cors (`None` if disabled)
 	///
 	/// By default this is `Some(Vec::new())`.
 	fn rpc_cors(&self, _is_dev: bool) -> Result<Option<Vec<String>>> {
 		Ok(Some(Vec::new()))
+	}
+
+	/// Get maximum RPC payload.
+	fn rpc_max_payload(&self) -> Result<Option<usize>> {
+		Ok(None)
 	}
 
 	/// Get the prometheus configuration (`None` if disabled)
@@ -379,13 +382,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		chain_spec: &Box<dyn ChainSpec>,
 	) -> Result<Option<TelemetryEndpoints>> {
 		Ok(chain_spec.telemetry_endpoints().clone())
-	}
-
-	/// Get the telemetry external transport
-	///
-	/// By default this is `None`.
-	fn telemetry_external_transport(&self) -> Result<Option<ExtTransport>> {
-		Ok(None)
 	}
 
 	/// Get the default value for heap pages
@@ -470,7 +466,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		&self,
 		cli: &C,
 		task_executor: TaskExecutor,
-		telemetry_handle: Option<TelemetryHandle>,
 	) -> Result<Configuration> {
 		let is_dev = self.is_dev()?;
 		let chain_id = self.chain_id(is_dev)?;
@@ -486,20 +481,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let node_key = self.node_key(&net_config_dir)?;
 		let role = self.role(is_dev)?;
 		let max_runtime_instances = self.max_runtime_instances()?.unwrap_or(8);
-		let is_validator = role.is_network_authority();
+		let is_validator = role.is_authority();
 		let (keystore_remote, keystore) = self.keystore_config(&config_dir)?;
-		let telemetry_endpoints = telemetry_handle
-			.as_ref()
-			.and_then(|_| self.telemetry_endpoints(&chain_spec).transpose())
-			.transpose()?
-			// Don't initialise telemetry if `telemetry_endpoints` == Some([])
-			.filter(|x| !x.is_empty());
-		let telemetry_span = telemetry_endpoints.as_ref().map(|_| TelemetrySpan::new());
+		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 
-		let unsafe_pruning = self
-			.import_params()
-			.map(|p| p.unsafe_pruning)
-			.unwrap_or(false);
+		let unsafe_pruning = self.import_params().map(|p| p.unsafe_pruning).unwrap_or(false);
 
 		Ok(Configuration {
 			impl_name: C::impl_name(),
@@ -509,6 +495,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			network: self.network_config(
 				&chain_spec,
 				is_dev,
+				is_validator,
 				net_config_dir,
 				client_id.as_str(),
 				self.node_name()?.as_str(),
@@ -517,7 +504,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			)?,
 			keystore_remote,
 			keystore,
-			database: self.database_config(&config_dir, database_cache_size, database)?,
+			database: self.database_config(&config_dir, database_cache_size, database, &role)?,
 			state_cache_size: self.state_cache_size()?,
 			state_cache_child_ratio: self.state_cache_child_ratio()?,
 			state_pruning: self.state_pruning(unsafe_pruning, &role)?,
@@ -531,11 +518,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_ipc: self.rpc_ipc()?,
 			rpc_methods: self.rpc_methods()?,
 			rpc_ws_max_connections: self.rpc_ws_max_connections()?,
+			rpc_http_threads: self.rpc_http_threads()?,
 			rpc_cors: self.rpc_cors(is_dev)?,
+			rpc_max_payload: self.rpc_max_payload()?,
 			prometheus_config: self.prometheus_config(DCV::prometheus_listen_port())?,
 			telemetry_endpoints,
-			telemetry_span,
-			telemetry_external_transport: self.telemetry_external_transport()?,
 			default_heap_pages: self.default_heap_pages()?,
 			offchain_worker: self.offchain_worker(&role)?,
 			force_authoring: self.force_authoring()?,
@@ -550,7 +537,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			role,
 			base_path: Some(base_path),
 			informant_output_format: Default::default(),
-			telemetry_handle,
 		})
 	}
 
@@ -581,15 +567,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// 1. Sets the panic handler
 	/// 2. Initializes the logger
 	/// 3. Raises the FD limit
-	fn init<C: SubstrateCli>(&self) -> Result<sc_telemetry::TelemetryWorker> {
+	fn init<C: SubstrateCli>(&self) -> Result<()> {
 		sp_panic_handler::set(&C::support_url(), &C::impl_version());
 
 		let mut logger = LoggerBuilder::new(self.log_filters()?);
 		logger.with_log_reloading(!self.is_log_filter_reloading_disabled()?);
-
-		if let Some(transport) = self.telemetry_external_transport()? {
-			logger.with_transport(transport);
-		}
 
 		if let Some(tracing_targets) = self.tracing_targets()? {
 			let tracing_receiver = self.tracing_receiver()?;
@@ -600,7 +582,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			logger.with_colors(false);
 		}
 
-		let telemetry_worker = logger.init()?;
+		logger.init()?;
 
 		if let Some(new_limit) = fdlimit::raise_fd_limit() {
 			if new_limit < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
@@ -612,7 +594,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			}
 		}
 
-		Ok(telemetry_worker)
+		Ok(())
 	}
 }
 
@@ -625,7 +607,7 @@ pub fn generate_node_name() -> String {
 		let count = node_name.chars().count();
 
 		if count < NODE_NAME_MAX_LENGTH {
-			return node_name;
+			return node_name
 		}
 	}
 }

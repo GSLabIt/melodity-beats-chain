@@ -48,8 +48,12 @@ type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Con
 type Balance = u128;
 
 #[frame_support::pallet]
-pub mod module {
+pub mod pallet {
 	use super::*;
+
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -122,9 +126,6 @@ pub mod module {
 	#[pallet::storage]
 	#[pallet::getter(fn last_conversion_rate)]
 	pub type LastConversionRate<T> = StorageValue<_, (u128, Vec<u8>), ValueQuery>;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
@@ -314,7 +315,7 @@ pub mod module {
 	}
 }
 
-pub use module::*;
+pub use pallet::*;
 
 impl<T: Config> Pallet<T> {
 	/// compute the current change rate
@@ -379,7 +380,6 @@ impl<T: Config> Pallet<T> {
 				}
 
 				rate = rate.checked_div(issuance).ok_or(Error::<T>::Overflow)?;
-				frame_support::debug::debug!("rate: {:?}", rate);
 			}
 		}
 

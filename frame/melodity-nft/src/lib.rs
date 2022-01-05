@@ -92,8 +92,12 @@ pub struct ClassSettings<T: Config> {
 }
 
 #[frame_support::pallet]
-pub mod module {
+pub mod pallet {
 	use super::*;
+
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -239,9 +243,6 @@ pub mod module {
 			})
 		}
 	}
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
@@ -494,7 +495,7 @@ pub mod module {
 	}
 }
 
-pub use module::*;
+pub use pallet::*;
 
 impl<T: Config> Pallet<T> {
 	/// Create NFT(non fungible token) class

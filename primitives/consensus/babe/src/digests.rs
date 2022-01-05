@@ -22,8 +22,8 @@ use super::{
 	BabeEpochConfiguration, Slot, BABE_ENGINE_ID,
 };
 use codec::{Codec, Decode, Encode};
+use sp_runtime::{DigestItem, RuntimeDebug};
 use sp_std::vec::Vec;
-use sp_runtime::{generic::OpaqueDigestItemId, DigestItem, RuntimeDebug};
 
 use sp_consensus_vrf::schnorrkel::{Randomness, VRFOutput, VRFProof};
 
@@ -143,14 +143,13 @@ pub enum NextConfigDescriptor {
 		c: (u64, u64),
 		/// Value of `allowed_slots` in `BabeEpochConfiguration`.
 		allowed_slots: AllowedSlots,
-	}
+	},
 }
 
 impl From<NextConfigDescriptor> for BabeEpochConfiguration {
 	fn from(desc: NextConfigDescriptor) -> Self {
 		match desc {
-			NextConfigDescriptor::V1 { c, allowed_slots } =>
-				Self { c, allowed_slots },
+			NextConfigDescriptor::V1 { c, allowed_slots } => Self { c, allowed_slots },
 		}
 	}
 }
@@ -176,15 +175,16 @@ pub trait CompatibleDigestItem: Sized {
 	fn as_next_config_descriptor(&self) -> Option<NextConfigDescriptor>;
 }
 
-impl<Hash> CompatibleDigestItem for DigestItem<Hash> where
-	Hash: Send + Sync + Eq + Clone + Codec + 'static
+impl<Hash> CompatibleDigestItem for DigestItem<Hash>
+where
+	Hash: Send + Sync + Eq + Clone + Codec + 'static,
 {
 	fn babe_pre_digest(digest: PreDigest) -> Self {
 		DigestItem::PreRuntime(BABE_ENGINE_ID, digest.encode())
 	}
 
 	fn as_babe_pre_digest(&self) -> Option<PreDigest> {
-		self.try_to(OpaqueDigestItemId::PreRuntime(&BABE_ENGINE_ID))
+		self.pre_runtime_try_to(&BABE_ENGINE_ID)
 	}
 
 	fn babe_seal(signature: AuthoritySignature) -> Self {
@@ -192,11 +192,11 @@ impl<Hash> CompatibleDigestItem for DigestItem<Hash> where
 	}
 
 	fn as_babe_seal(&self) -> Option<AuthoritySignature> {
-		self.try_to(OpaqueDigestItemId::Seal(&BABE_ENGINE_ID))
+		self.seal_try_to(&BABE_ENGINE_ID)
 	}
 
 	fn as_next_epoch_descriptor(&self) -> Option<NextEpochDescriptor> {
-		self.try_to(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID))
+		self.consensus_try_to(&BABE_ENGINE_ID)
 			.and_then(|x: super::ConsensusLog| match x {
 				super::ConsensusLog::NextEpochData(n) => Some(n),
 				_ => None,
@@ -204,7 +204,7 @@ impl<Hash> CompatibleDigestItem for DigestItem<Hash> where
 	}
 
 	fn as_next_config_descriptor(&self) -> Option<NextConfigDescriptor> {
-		self.try_to(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID))
+		self.consensus_try_to(&BABE_ENGINE_ID)
 			.and_then(|x: super::ConsensusLog| match x {
 				super::ConsensusLog::NextConfigData(n) => Some(n),
 				_ => None,
