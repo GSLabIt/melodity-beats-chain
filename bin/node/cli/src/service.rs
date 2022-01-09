@@ -36,6 +36,9 @@ use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::sync::Arc;
+use sp_core::crypto::{
+	set_default_ss58_version, Ss58AddressFormat
+};
 
 /// The full client type definition.
 pub type FullClient =
@@ -313,6 +316,8 @@ pub fn new_full_base(
 		&sc_consensus_babe::BabeLink<Block>,
 	),
 ) -> Result<NewFullBase, ServiceError> {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+
 	let sc_service::PartialComponents {
 		client,
 		backend,

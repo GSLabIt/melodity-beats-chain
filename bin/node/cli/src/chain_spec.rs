@@ -23,7 +23,7 @@ use hex_literal::hex;
 use node_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
 	BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
-	ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus,
+	ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, StakerStatus,
 	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, MAX_NOMINATIONS,
 	BridgeConfig, NftConfig, 
 };

@@ -50,9 +50,6 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_core::crypto::{
-	set_default_ss58_version, Ss58AddressFormat
-};
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -138,8 +135,6 @@ where
 		subscription_executor,
 		finality_provider,
 	} = grandpa;
-
-	set_default_ss58_version(Ss58AddressFormat::custom(57));
 
 	io.extend_with(SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe)));
 	// Making synchronous calls in light client freezes the browser currently,
