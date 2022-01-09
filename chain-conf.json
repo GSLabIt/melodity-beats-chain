@@ -67,8 +67,8 @@
 				],
 				"minNominatorBond": 0,
 				"minValidatorBond": 0,
-				"maxValidatorCount": null,
-				"maxNominatorCount": null
+				"maxValidatorCount": 4,
+				"maxNominatorCount": 256
 			},
 			"session": {
 				"keys": [
