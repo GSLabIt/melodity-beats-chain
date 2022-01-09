@@ -21,6 +21,9 @@ use node_executor::ExecutorDispatch;
 use node_runtime::{Block, RuntimeApi};
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
+use sp_core::crypto::{
+	set_default_ss58_version, Ss58AddressFormat
+};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -44,7 +47,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn copyright_start_year() -> i32 {
-		2017
+		2021
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
@@ -71,6 +74,8 @@ impl SubstrateCli for Cli {
 
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+	
 	let cli = Cli::from_args();
 
 	match &cli.subcommand {

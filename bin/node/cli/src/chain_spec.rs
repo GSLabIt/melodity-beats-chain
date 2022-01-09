@@ -39,6 +39,9 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	Perbill,
 };
+use sp_core::crypto::{
+	set_default_ss58_version, Ss58AddressFormat
+};
 
 pub use node_primitives::{AccountId, Balance, Signature};
 pub use node_runtime::GenesisConfig;
@@ -375,6 +378,8 @@ pub fn testnet_genesis(
 }
 
 fn development_config_genesis() -> GenesisConfig {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+
 	testnet_genesis(
 		vec![authority_keys_from_seed("Alice")],
 		vec![],
@@ -385,6 +390,8 @@ fn development_config_genesis() -> GenesisConfig {
 
 /// Development config (single validator Alice)
 pub fn development_config() -> ChainSpec {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+
 	ChainSpec::from_genesis(
 		"Development",
 		"dev",
@@ -399,6 +406,8 @@ pub fn development_config() -> ChainSpec {
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+
 	testnet_genesis(
 		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 		vec![],
@@ -409,6 +418,8 @@ fn local_testnet_genesis() -> GenesisConfig {
 
 /// Local testnet config (multivalidator Alice + Bob)
 pub fn local_testnet_config() -> ChainSpec {
+	set_default_ss58_version(Ss58AddressFormat::custom(57));
+
 	ChainSpec::from_genesis(
 		"Local Testnet",
 		"local_testnet",
