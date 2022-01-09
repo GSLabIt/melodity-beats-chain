@@ -41,7 +41,7 @@ type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Con
 type Balance = u128;
 
 /// Balance types where the airdrop will be sent.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
 pub enum AirdropTypes {
 	/// Airdrop to the free balance.
 	Free = 0,
@@ -53,7 +53,8 @@ pub enum AirdropTypes {
 	Fee = 3,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct Airdrop<AirdropId, T: Config> {
 	/// airdrop identifier
 	pub id: AirdropId,
@@ -73,7 +74,7 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
-	pub struct Pallet<T>(PhantomData<T>);
+	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_balances::Config {
@@ -111,17 +112,17 @@ pub mod pallet {
 		CreatedAirdrop(u128, Vec<u8>),
 	}
 
-	pub type AirdropInfoOf<T> = Airdrop<u128, T>;
+	type AirdropInfoOf<T: Config> = Airdrop<u128, T>;
 
 	/// Next available airdrop ID.
 	#[pallet::storage]
 	#[pallet::getter(fn next_airdrop_id)]
-	pub type NextAirdropId<T: Config> = StorageValue<_, u128, ValueQuery>;
+	pub(crate) type NextAirdropId<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	/// Store the airdrop info.
 	#[pallet::storage]
 	#[pallet::getter(fn classes)]
-	pub type Airdrops<T: Config> = StorageMap<_, Twox64Concat, u128, AirdropInfoOf<T>>;
+	pub(crate) type Airdrops<T: Config> = StorageMap<_, Twox64Concat, u128, AirdropInfoOf<T>>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}

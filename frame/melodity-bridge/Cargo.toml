@@ -10,7 +10,8 @@ edition = "2018"
 [dependencies]
 serde = { features = ['derive'], optional = true, version = '1.0.119' }
 codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false }
-sp-core = { version = "4.0.0-dev", default-features = false, path = "../../primitives/core" }
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
+sp-core = { version = "4.1.0-dev", default-features = false, path = "../../primitives/core" }
 sp-std = { version = "4.0.0-dev", default-features = false, path = "../../primitives/std" }
 sp-runtime = { version = "4.0.0-dev", default-features = false, path = "../../primitives/runtime" }
 
@@ -26,6 +27,7 @@ sp-io = { version = "4.0.0-dev", path = "../../primitives/io" }
 default = ["std"]
 std = [
 	"serde",
+	"scale-info/std",
 	"codec/std",
 	"sp-std/std",
 	"sp-runtime/std",

@@ -51,7 +51,8 @@ type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Con
 type Balance = u128;
 
 /// Class info
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct ClassInfo<TokenId, AccountId, Data, T: Config> {
 	/// Total issuance for the class
 	pub total_issuance: TokenId,
@@ -66,7 +67,7 @@ pub struct ClassInfo<TokenId, AccountId, Data, T: Config> {
 }
 
 /// Token info
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo)]
 pub struct TokenInfo<AccountId, Data> {
 	/// Token owner
 	pub owner: AccountId,
@@ -76,14 +77,15 @@ pub struct TokenInfo<AccountId, Data> {
 
 /// MELT token data
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo)]
 pub struct MelodityNFTData {
 	pub json: Vec<u8>,
 }
 
 /// NFT class settings
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct ClassSettings<T: Config> {
 	/// Fee to be paid from the minter if the nft is publicly mintable
 	pub mint_fee: BalanceOf<T>,
@@ -97,20 +99,20 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
-	pub struct Pallet<T>(PhantomData<T>);
+	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// The class ID type
-		type ClassId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+		type ClassId: scale_info::TypeInfo + Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
 
 		/// The token ID type
-		type TokenId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
+		type TokenId: scale_info::TypeInfo + Parameter + Member + AtLeast32BitUnsigned + Default + Copy;
 
 		/// The class properties type
-		type ClassData: Parameter + Member + MaybeSerializeDeserialize;
+		type ClassData: scale_info::TypeInfo + Parameter + Member + MaybeSerializeDeserialize;
 
 		/// The token properties type
 		type TokenData: Parameter + Member + MaybeSerializeDeserialize;
@@ -123,7 +125,7 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 	}
 
-	pub type ClassInfoOf<T> =
+	pub type ClassInfoOf<T: scale_info::TypeInfo> =
 		ClassInfo<<T as Config>::TokenId, <T as frame_system::Config>::AccountId, <T as Config>::ClassData, T>;
 	pub type TokenInfoOf<T> = TokenInfo<<T as frame_system::Config>::AccountId, <T as Config>::TokenData>;
 
