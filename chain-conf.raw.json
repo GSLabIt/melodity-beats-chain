@@ -2,9 +2,7 @@
   "name": "Melodity Beats Mainnet",
   "id": "virtuous-panda",
   "chainType": "Live",
-  "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWRPy3j6dNR6s3Ui2hprDtauqY5oFNGfosActZdDHgw4tc"
-  ],
+  "bootNodes": [],
   "telemetryEndpoints": null,
   "protocolId": "57",
   "properties": {
