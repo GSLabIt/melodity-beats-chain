@@ -145,11 +145,24 @@ pub fn native_version() -> NativeVersion {
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 parameter_types! {
+	/* 
+	+---------------------+
+	|  REAL CHAIN VALUES  |
+	+---------------------+
+	*/
 	/// Do inc. - Company address (root address)
 	pub PlatformPot: AccountId = AccountId::new([246, 64, 39, 203, 134, 94, 4, 124, 34, 12, 48, 42, 25, 150, 193, 100, 240, 153, 
 										38, 100, 227, 210, 214, 51, 94, 95, 229, 231, 0, 118, 233, 101]);
 	pub AirdropController: AccountId = AccountId::new([190, 244, 28, 51, 253, 43, 19, 6, 64, 21, 151, 120, 234, 143, 130, 167, 
-										114, 78, 23, 86, 34, 239, 196, 112, 101, 93, 187, 92, 79, 122, 101, 91]);
+										114, 78, 23, 86, 34, 239, 196, 112, 101, 93, 187, 92, 79, 122, 101, 91]); 
+	*/
+
+	// dev chain values
+	/// Do inc. - Company address (root address on dev chain)
+	/* pub PlatformPot: AccountId = AccountId::new([198, 204, 246, 91, 165, 246, 194, 105, 173, 214, 122, 148, 72, 160, 197, 94, 
+		140, 181, 120, 30, 250, 61, 235, 148, 191, 233, 169, 198, 49, 254, 242, 63]);
+	pub AirdropController: AccountId = AccountId::new([230, 211, 196, 72, 207, 111, 243, 25, 125, 126, 152, 201, 55, 205, 202, 
+		14, 129, 11, 243, 247, 64, 17, 188, 155, 222, 24, 79, 105, 130, 77, 129, 48]);  */
 	pub AirdropControllerVec: Vec<AccountId> = vec![AirdropController::get()];
 	pub PlatformPotVec: Vec<AccountId> = vec![PlatformPot::get()];
 }
