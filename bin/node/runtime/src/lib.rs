@@ -122,7 +122,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 269,
+	spec_version: 271,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -155,7 +155,7 @@ parameter_types! {
 										38, 100, 227, 210, 214, 51, 94, 95, 229, 231, 0, 118, 233, 101]);
 	pub AirdropController: AccountId = AccountId::new([190, 244, 28, 51, 253, 43, 19, 6, 64, 21, 151, 120, 234, 143, 130, 167, 
 										114, 78, 23, 86, 34, 239, 196, 112, 101, 93, 187, 92, 79, 122, 101, 91]); 
-	*/
+	
 
 	// dev chain values
 	/// Do inc. - Company address (root address on dev chain)
@@ -530,7 +530,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	pub const TransactionByteFee: Balance = 250 * MILLICENTS;
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
