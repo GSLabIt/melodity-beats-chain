@@ -12,28 +12,28 @@
 
 //! ### Module Functions
 //!
-//! - `setAvailableMELD` - Set the available amount of MELD in the bridge 
+//! - `set_available_meld` - Set the available amount of MELD in the bridge 
 //! 						wallet
 //! - `convert` - Takes the defined amount of MELB and burns them, the
 //! 				bridge listener will be responsible for the sending
 //! 				of tokens
-//! - `setConversionFee` - Set the conversion fee taken by the platform
-//! - `setMinimumConversionAmount` - Set the minimum amount required to be converted
-//! - `checkChangeRate` - Return the current change rate
+//! - `set_conversion_fee` - Set the conversion fee taken by the platform
+//! - `set_minimum_conversion_amount` - Set the minimum amount required to be converted
+//! - `check_change_rate` - Return the current change rate
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
 
 use sp_std::convert::TryInto;
 use frame_support::{
-	ensure, pallet_prelude::*, Parameter,
+	ensure, pallet_prelude::*, // Parameter, // unused
 	traits::{
 		Currency, ReservableCurrency, WithdrawReasons, ExistenceRequirement
 	},
 };
 use sp_runtime::{
 	traits::{
-		CheckedSub, Zero, One,
+		One, // CheckedSub, Zero,  // unused
 	},
 	DispatchError,  
 };
@@ -126,7 +126,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn last_conversion_rate)]
 	pub type LastConversionRate<T> = StorageValue<_, (u128, Vec<u8>), ValueQuery>;
-
+	
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -162,15 +162,20 @@ pub mod pallet {
 		}
 	}
 
+	use frame_support::log::{info}; // {info, trace, warn};  // unused
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Create NFT(non fungible token) class
 		#[pallet::weight(1_000_000_000)]
-		pub fn setAvailableMeld(
+		pub fn set_available_meld(
 			origin: OriginFor<T>,
 			amount: u128,
 		) -> DispatchResultWithPostInfo {
-			T::ControllerOrigin::ensure_origin(origin)?;
+			T::ControllerOrigin::ensure_origin(origin)?; 
+
+			// add necessary decimals to amount (18)
+			let amount:u128 = amount.checked_mul(10u128.checked_pow(18).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
 
 			AvailableMeld::<T>::try_mutate(|available_m| -> Result<u128, DispatchError> {
 				*available_m = amount;
@@ -183,7 +188,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Transfer NFT(non fungible token) from `from` account to `to` account
+		/// NOTE: inserted address has to OMIT the '0x' to avoid bad Vec<u8> formatting.
 		#[pallet::weight(1_000_000_000)]
 		pub fn convert(
 			origin: OriginFor<T>,
@@ -192,18 +197,24 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// ensure the transaction is signed
 			let from = ensure_signed(origin)?;
+
+			// translate amount to have same decimals as MinimumConversion (12 decimals)
+			let amount:u128 = amount.checked_mul(10u128.checked_pow(12).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
 			
+			info!("AMOUNT TO CONVERT: {}, MINIMUMCONVERSION: {}", amount, MinimumConversion::<T>::get());
+			// ensure!(amount >= MinimumConversion::<T>::get(), Error::<T>::ConversionAmountTooLow);
 			ensure!(amount >= MinimumConversion::<T>::get(), Error::<T>::ConversionAmountTooLow);
+
 
 			// avoid overflowing u128 by setting the maximum conversion amount to 1 mln MELB
 			// also the amount of MELD in the bridge wallet MUST not exceed 300 mln units
 			ensure!(amount <= 1_000_000__000000000000u128, Error::<T>::ConversionAmountTooHigh);
 
 			// wallet regex
-			// let re = Regex::new(r"^0x[a-fA-F0-9]{40}$").unwrap(); unusable with no-std env
-			ensure!(bsc_wallet.len() == 42, Error::<T>::InvalidWalletAddress);
-			ensure!(bsc_wallet[0] == '0' as u8 && bsc_wallet[1] == 'x' as u8, Error::<T>::InvalidWalletAddress);
-			for i in 2..42 {
+			// let re = Regex::new(r"^0x[a-fA-F0-9]{40}$").unwrap(); unusable with no-std env	
+			ensure!(bsc_wallet.len() == 40, Error::<T>::InvalidWalletAddress);
+			// ensure!(bsc_wallet[0] == '0' as u8 && bsc_wallet[1] == 'x' as u8, Error::<T>::InvalidWalletAddress);
+			for i in 0..40 {
 				if (bsc_wallet[i] >= 48 && bsc_wallet[i] <= 57) || 
 					(bsc_wallet[i] >= 65 && bsc_wallet[i] <= 70) ||
 					(bsc_wallet[i] >= 97 && bsc_wallet[i] <= 102) {
@@ -213,25 +224,35 @@ pub mod pallet {
 					return Err(Error::<T>::InvalidWalletAddress.into());
 				}
 			}
+			info!("ADDRESS OK..");
 			
 			// compute the fee and the really converted amount
-			let mut fee: u128 = amount.checked_mul(ConversionFee::<T>::get()).ok_or(Error::<T>::Overflow)?;
-			fee = fee.checked_div(T::FeeDecimalPositions::get().checked_mul(100).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
+			// conversion fee is in 8 decimals (considering it is a percentage then it is in 10)
+			// therefore multiplying by 100 brings it to 12 decimals, which is what is needed
+			let mut fee: u128 = amount.checked_mul(ConversionFee::<T>::get().checked_mul(100).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
+			// remove double decimals: prev multiplication gives 24 decimals of precision
+			fee = fee.checked_div(10u128.checked_pow(12).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
+			info!("FEE TO PAY FOR AMOUNT: {} is {}", amount, fee);
+			// fee = fee.checked_div(T::FeeDecimalPositions::get().checked_mul(100).ok_or(Error::<T>::Overflow)?).ok_or(Error::<T>::Overflow)?;
+			info!("FEE COMPUTATION OK..");
 
 			// if the conversion is made by the platform pot itself the fee (that goes to the)
 			// same address should not be payed as it is nonsense
-			if(from == T::PlatformPot::get()) {
+			if from == T::PlatformPot::get() {
 				fee = 0u128;
 			}
 
 			let real_amount: u128 = amount.checked_sub(fee).ok_or(Error::<T>::Overflow)?;
+			info!("REAL AMOUNT COMPUTATION OK..");
+
+			info!("REAL AMOUNT: {}, AMOUNT: {}, FEE: {}", real_amount, amount, fee);
 
 			// check the user actually has the funds to perform the conversion
-			if(T::Currency::free_balance(&from) >= amount.into()) {
+			if T::Currency::free_balance(&from) >= amount.into() {
 				// burn the real_amount of token that get converted
 				T::Currency::withdraw(&from, real_amount.into(), WithdrawReasons::TRANSACTION_PAYMENT, ExistenceRequirement::AllowDeath)?;
 				// transfer to the platform pot the taken fees
-				if(fee > 0u128) {
+				if fee > 0u128 {
 					T::Currency::transfer(&from, &T::PlatformPot::get(), fee.into(), ExistenceRequirement::AllowDeath)?;
 					// emit event
 					Self::deposit_event(Event::FeeTaken(from, fee, real_amount));
@@ -258,7 +279,7 @@ pub mod pallet {
 				let issuance: u128 = TryInto::<u128>::try_into(T::Currency::total_issuance())
 					.ok()
 					.unwrap_or(0);
-				if(issuance == 0) {
+				if issuance == 0 {
 					return Err(Error::<T>::IncompatibleTypes.into());
 				}
 				// second phase, first_phase / MELB issuance
@@ -266,6 +287,7 @@ pub mod pallet {
 				// third phase (re-alignment), second_phase * 1e6
 				meld = meld.checked_mul(1_000_000).ok_or(Error::<T>::Overflow)?;
 
+				
 				AvailableMeld::<T>::try_mutate(|available_m| -> Result<u128, DispatchError> {
 					*available_m = available_m.checked_sub(meld).ok_or(Error::<T>::BridgeExhausted)?;
 					Ok(*available_m)
@@ -283,7 +305,7 @@ pub mod pallet {
 
 		/// Mint NFT(non fungible token) to `owner`
 		#[pallet::weight(1_000_000_000)]
-		pub fn setConversionFee(
+		pub fn set_conversion_fee(
 			origin: OriginFor<T>,
 			fee: u128,
 		) -> DispatchResultWithPostInfo {
@@ -299,7 +321,7 @@ pub mod pallet {
 
 		/// Mint NFT(non fungible token) to `owner`
 		#[pallet::weight(1_000_000_000)]
-		pub fn setMinimumConversionAmount(
+		pub fn set_minimum_conversion_amount(
 			origin: OriginFor<T>,
 			amount: u128,
 		) -> DispatchResultWithPostInfo {
@@ -316,6 +338,7 @@ pub mod pallet {
 }
 
 pub use pallet::*;
+use frame_support::log::{info}; // {info, trace, warn};  // unused
 
 impl<T: Config> Pallet<T> {
 	/// compute the current change rate
@@ -326,6 +349,7 @@ impl<T: Config> Pallet<T> {
 			let mut issuance = TryInto::<u128>::try_into(T::Currency::total_issuance())
 				.ok()
 				.unwrap_or(1);
+
 			if issuance == 0 {
 				return Err(Error::<T>::IncompatibleTypes.into());
 			}
@@ -336,38 +360,36 @@ impl<T: Config> Pallet<T> {
 			rate = truncated_available_meld.checked_div(issuance).ok_or(Error::<T>::Overflow)?;
 			
 			// static values
-			let a: u128 = 1_000;
-			let b: u128 = 1_000_000;
-			let c: u128 = 1_000_000_000;
-			let d: u128 = 1_000_000_000_000;
-			let e: u128 = 1_000_000_000_000_000;
-			let f: u128 = 1_000_000_000_000_000_000;
-			let g: u128 = 1_000_000_000_000_000_000_000;
-			let h: u128 = 1_000_000_000_000_000_000_000_000;
-			let i: u128 = 1_000_000_000_000_000_000_000_000_000;
-			let j: u128 = 1_000_000_000_000_000_000_000_000_000_000;
-			let k: u128 = 1_000_000_000_000_000_000_000_000_000_000_000;
+			const A: u128 = 1_000;
+			const B: u128 = 1_000_000;
+			const C: u128 = 1_000_000_000;
+			const D: u128 = 1_000_000_000_000;
+			const E: u128 = 1_000_000_000_000_000;
+			const F: u128 = 1_000_000_000_000_000_000;
+			const G: u128 = 1_000_000_000_000_000_000_000;
+			const H: u128 = 1_000_000_000_000_000_000_000_000;
+			const I: u128 = 1_000_000_000_000_000_000_000_000_000;
+			const J: u128 = 1_000_000_000_000_000_000_000_000_000_000;
+			const K: u128 = 1_000_000_000_000_000_000_000_000_000_000_000;
 
 
 			let mut multiplier: u128 = One::one();
-			let mut zeros: u128 = 0;
 
 			// if the rate is zero the change rate is lower than the precision
 			while rate == 0 {
 				multiplier = multiplier.checked_mul(1_000).ok_or(Error::<T>::Overflow)?;
-				zeros += 3;
 				match multiplier {
-					a => unit = "thousand MELB".as_bytes().to_vec(),
-					b => unit = "million MELB".as_bytes().to_vec(),
-					c => unit = "billion MELB".as_bytes().to_vec(),
-					d => unit = "trillion MELB".as_bytes().to_vec(),
-					e => unit = "quadrillion MELB".as_bytes().to_vec(),
-					f => unit = "quintillion MELB".as_bytes().to_vec(),
-					g => unit = "sextillion MELB".as_bytes().to_vec(),
-					h => unit = "septillion MELB".as_bytes().to_vec(),
-					i => unit = "octillion MELB".as_bytes().to_vec(),
-					j => unit = "nonillion MELB".as_bytes().to_vec(),
-					k => unit = "decillion MELB".as_bytes().to_vec(),
+					A => unit = "thousand MELB".as_bytes().to_vec(),
+					B => unit = "million MELB".as_bytes().to_vec(),
+					C => unit = "billion MELB".as_bytes().to_vec(),
+					D => unit = "trillion MELB".as_bytes().to_vec(),
+					E => unit = "quadrillion MELB".as_bytes().to_vec(),
+					F => unit = "quintillion MELB".as_bytes().to_vec(),
+					G => unit = "sextillion MELB".as_bytes().to_vec(),
+					H => unit = "septillion MELB".as_bytes().to_vec(),
+					I => unit = "octillion MELB".as_bytes().to_vec(),
+					J => unit = "nonillion MELB".as_bytes().to_vec(),
+					K => unit = "decillion MELB".as_bytes().to_vec(),
 					_ => unit = "undicillion MELB".as_bytes().to_vec(),
 				}
 				rate = multiplier.checked_mul(truncated_available_meld).ok_or(Error::<T>::Overflow)?;
@@ -375,7 +397,7 @@ impl<T: Config> Pallet<T> {
 				issuance = TryInto::<u128>::try_into(T::Currency::total_issuance())
 					.ok()
 					.unwrap_or(0);
-				if(issuance == 0) {
+				if issuance == 0 {
 					return Err(Error::<T>::IncompatibleTypes.into());
 				}
 
@@ -384,7 +406,13 @@ impl<T: Config> Pallet<T> {
 		}
 
 		rate = rate.checked_mul(1_000_000).ok_or(Error::<T>::Overflow)?;
-		
+		/*
+		// decomment to actively notice the change rate
+		info!("RATE: {}, UNIT:", rate);
+		for i in &unit{
+			info!("{}", *i as char);
+		}
+		*/
 		Ok((rate, unit))
 	}
 }
